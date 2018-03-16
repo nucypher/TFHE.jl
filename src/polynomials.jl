@@ -69,157 +69,6 @@ mutable struct LagrangeHalfCPolynomial
 end
 
 
-
-function torusPolynomialMultNaive_aux(
-        result::Array{Torus32, 1}, poly1::Array{Int32, 1}, poly2::Array{Torus32, 1}, N::Int32)
-
-    for i in 0:(N-1)
-        ri::Torus32 = 0
-        for j in 0:i
-            ri += poly1[j+1] * poly2[i-j+1]
-        end
-        for j in (i+1):(N-1)
-            ri -= poly1[j+1] * poly2[N+i-j+1]
-        end
-        result[i+1] = ri
-    end
-end
-
-
-#=
- * This is the naive external multiplication of an integer polynomial
- * with a torus polynomial. (this function should yield exactly the same
- * result as the karatsuba or fft version)
-=#
-function torusPolynomialMultNaive(result::TorusPolynomial, poly1::IntPolynomial, poly2::TorusPolynomial)
-    N = poly1.N
-    torusPolynomialMultNaive_aux(result.coefsT, poly1.coefs, poly2.coefsT, N)
-end
-
-
-function torusPolynomialMultNaive_plain_aux(
-        poly1::Array{Int32, 1}, poly2::Array{Torus32, 1})
-
-    N = size(poly1, 1)
-    _2Nm1::Int32 = 2 * N - 1
-    result = Array{Torus32, 1}(_2Nm1)
-
-    for i in 0:(N-1)
-        ri::Torus32 = 0
-        for j in 0:i
-            ri += poly1[j+1] * poly2[i-j+1]
-        end
-        result[i+1] = ri
-    end
-
-    for i in N:(_2Nm1-1)
-        ri::Torus32 = 0
-        for j in (i - N + 1):(N-1)
-            ri += poly1[j+1] * poly2[i-j+1]
-        end
-        result[i+1] = ri
-    end
-
-    result
-end
-
-#=
- * This function multiplies 2 polynomials (an integer poly and a torus poly) by using Karatsuba
- * The karatsuba function is torusPolynomialMultKaratsuba: it takes in input two polynomials and multiplies them
- * To do that, it uses the auxiliary function Karatsuba_aux, which is recursive ad which works with
- * the vectors containing the coefficients of the polynomials (primitive types)
-=#
-
-# A and B of size = size
-# R of size = 2*size-1
-function Karatsuba_aux(
-        A::Array{Int32, 1}, B::Array{Torus32, 1})
-
-    size_ = size(A, 1)
-    h::Int32 = size_ / 2
-    sm1::Int32 = size_ - 1
-
-    # we stop the karatsuba recursion at h=4, because on my machine,
-    # it seems to be optimal
-    if h <= 4
-        return torusPolynomialMultNaive_plain_aux(A, B)
-    end
-
-    Atemp = A[1:h] + A[h+1:2*h]
-    Btemp = B[1:h] + B[h+1:2*h]
-
-    # Karatsuba recursivly
-    R = Array{Torus32, 1}(4*h-1)
-    R[1:2*h-1] = Karatsuba_aux(A[1:h], B[1:h]) # (R[0],R[2*h-2]), (A[0],A[h-1]), (B[0],B[h-1])
-    R[2*h+1:4*h-1] = Karatsuba_aux(A[h+1:2h], B[h+1:2h]) # (R[2*h],R[4*h-2]), (A[h],A[2*h-1]), (B[h],B[2*h-1])
-    Rtemp = Karatsuba_aux(Atemp, Btemp)
-    R[sm1+1]=0 # this one needs to be set manually
-    for i in 0:(sm1-1)
-        Rtemp[i+1] -= R[i+1] + R[i+size_+1]
-    end
-    for i in 0:(sm1-1)
-        R[h+i+1] += Rtemp[i+1]
-    end
-
-    R
-end
-
-
-# poly1, poly2 and result are polynomials mod X^N+1
-function torusPolynomialMultKaratsuba(
-        result::TorusPolynomial, poly1::IntPolynomial, poly2::TorusPolynomial)
-
-    N = poly1.N
-
-    # Karatsuba
-    R = Karatsuba_aux(poly1.coefs, poly2.coefsT)
-
-    # reduction mod X^N+1
-    for i in 0:(N-2)
-        result.coefsT[i+1] = R[i+1] - R[N+i+1]
-    end
-    result.coefsT[N-1+1] = R[N-1+1];
-end
-
-#=
-// poly1, poly2 and result are polynomials mod X^N+1
-EXPORT void torusPolynomialAddMulRKaratsuba(TorusPolynomial* result, const IntPolynomial* poly1, const TorusPolynomial* poly2){
-    const int32_t N = poly1->N;
-    Torus32* R = new Torus32[2*N-1];
-    char* buf = new char[16*N]; //that's large enough to store every tmp variables (2*2*N*4)
-
-    // Karatsuba
-    Karatsuba_aux(R, poly1->coefs, poly2->coefsT, N, buf);
-
-    // reduction mod X^N+1
-    for (int32_t i = 0; i < N-1; ++i)
-        result->coefsT[i] += R[i] - R[N+i];
-    result->coefsT[N-1] += R[N-1];
-
-    delete[] R;
-    delete[] buf;
-}
-
-// poly1, poly2 and result are polynomials mod X^N+1
-EXPORT void torusPolynomialSubMulRKaratsuba(TorusPolynomial* result, const IntPolynomial* poly1, const TorusPolynomial* poly2){
-    const int32_t N = poly1->N;
-    Torus32* R = new Torus32[2*N-1];
-    char* buf = new char[16*N]; //that's large enough to store every tmp variables (2*2*N*4)
-
-    // Karatsuba
-    Karatsuba_aux(R, poly1->coefs, poly2->coefsT, N, buf);
-
-    // reduction mod X^N+1
-    for (int32_t i = 0; i < N-1; ++i)
-        result->coefsT[i] -= R[i] - R[N+i];
-    result->coefsT[N-1] -= R[N-1];
-
-    delete[] R;
-    delete[] buf;
-}
-=#
-
-
 function IntPolynomial_ifft(result::LagrangeHalfCPolynomial, p::IntPolynomial)
     res = result.coefsC
     a = p.coefs
@@ -291,18 +140,6 @@ function TorusPolynomial_fft(result::TorusPolynomial, p::LagrangeHalfCPolynomial
 end
 
 
-# multiplication via direct FFT
-# (it must know the implem of LagrangeHalfCPolynomial because of the tmp+1 notation
-function torusPolynomialMultFFT(result::TorusPolynomial, poly1::IntPolynomial, poly2::TorusPolynomial)
-    N = poly1.N
-    tmp = [LagrangeHalfCPolynomial(N) for i in 1:3]
-    IntPolynomial_ifft(tmp[1], poly1)
-    TorusPolynomial_ifft(tmp[2], poly2)
-    LagrangeHalfCPolynomialMul(tmp[3], tmp[1], tmp[2])
-    TorusPolynomial_fft(result, tmp[3])
-end
-
-
 function torusPolynomialAddMulRFFT(result::TorusPolynomial, poly1::IntPolynomial, poly2::TorusPolynomial)
     N = poly1.N
     tmp = [LagrangeHalfCPolynomial(N) for i in 1:3]
@@ -318,54 +155,12 @@ end
 torusPolynomialAddMulR = torusPolynomialAddMulRFFT
 
 
-function torusPolynomialSubMulRFFT(result::TorusPolynomial, poly1::IntPolynomial, poly2::TorusPolynomial)
-    N = poly1.N
-    tmp = [LagrangeHalfCPolynomial(N) for i in 1:3]
-    tmpr = TorusPolynomial(N)
-    IntPolynomial_ifft(tmp[1], poly1)
-    TorusPolynomial_ifft(tmp[2], poly2)
-    LagrangeHalfCPolynomialMul(tmp[3], tmp[1], tmp[2])
-    TorusPolynomial_fft(tmpr, tmp[3])
-    torusPolynomialSubTo(result, tmpr)
-end
-
-
 #MISC OPERATIONS
 
 # sets to zero
 function LagrangeHalfCPolynomialClear(reps::LagrangeHalfCPolynomial)
     for i in 1:reps.proc.Ns2
         reps.coefsC[i] = 0
-    end
-end
-
-
-function LagrangeHalfCPolynomialSetTorusConstant(result::LagrangeHalfCPolynomial, mu::Torus32)
-    Ns2 = result.proc.Ns2
-    b = result.coefsC
-    muc = t32tod(mu)
-    for j in 1:Ns2
-        b[j] = muc
-    end
-end
-
-
-function LagrangeHalfCPolynomialAddTorusConstant(result::LagrangeHalfCPolynomial, mu::Torus32)
-    Ns2 = result.proc.Ns2
-    b = result.coefsC
-    muc = t32tod(mu)
-    for j in 1:Ns2
-        b[j] += muc
-    end
-end
-
-
-function LagrangeHalfCPolynomialSetXaiMinusOne(result::LagrangeHalfCPolynomial, ai::Int32)
-    Ns2 = result.proc.Ns2
-    _2N = result.proc._2N
-    omegaxminus1 = result.proc.omegaxminus1
-    for i in 0:(Ns2-1)
-        result.coefsC[i+1] = omegaxminus1[((2 * i + 1) * ai) % _2N + 1]
     end
 end
 
@@ -402,34 +197,6 @@ function LagrangeHalfCPolynomialAddMul(
 end
 
 
-# termwise multiplication and subTo in Lagrange space
-function LagrangeHalfCPolynomialSubMul(
-        accum::LagrangeHalfCPolynomial,
-        a::LagrangeHalfCPolynomial,
-        b::LagrangeHalfCPolynomial)
-
-    Ns2 = accum.proc.Ns2
-    aa = a.coefsC
-    bb = b.coefsC
-    rr = accum.coefsC
-    for i in 0:(Ns2-1)
-        rr[i+1] -= aa[i+1]*bb[i+1]
-    end
-end
-
-
-function LagrangeHalfCPolynomialAddTo(
-        accum::LagrangeHalfCPolynomial,
-        a::LagrangeHalfCPolynomial)
-
-    Ns2 = accum.proc.Ns2
-    aa = a.coefsC
-    rr = accum.coefsC
-    for i in 0:(Ns2-1)
-        rr[i+1] += aa[i+1]
-    end
-end
-
 # Torus polynomial functions
 
 # TorusPolynomial = 0
@@ -453,13 +220,6 @@ function torusPolynomialCopy(result::TorusPolynomial, sample::TorusPolynomial)
     end
 end
 
-# TorusPolynomial + TorusPolynomial
-function torusPolynomialAdd(result::TorusPolynomial, poly1::TorusPolynomial, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] = poly1.coefsT[i] + poly2.coefsT[i]
-    end
-end
-
 # TorusPolynomial += TorusPolynomial
 function torusPolynomialAddTo(result::TorusPolynomial, poly2::TorusPolynomial)
     for i in 1:result.N
@@ -467,61 +227,27 @@ function torusPolynomialAddTo(result::TorusPolynomial, poly2::TorusPolynomial)
     end
 end
 
-# TorusPolynomial - TorusPolynomial
-function torusPolynomialSub(result::TorusPolynomial, poly1::TorusPolynomial, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] = poly1.coefsT[i] - poly2.coefsT[i]
-    end
-end
 
-# TorusPolynomial -= TorusPolynomial
-function torusPolynomialSubTo(result::TorusPolynomial, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] -= poly2.coefsT[i]
-    end
-end
-
-# TorusPolynomial + p*TorusPolynomial
-function torusPolynomialAddMulZ(result::TorusPolynomial, poly1::TorusPolynomial, p::Int32, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] = poly1.coefsT[i] + p * poly2.coefsT[i]
-    end
-end
-
-# TorusPolynomial += p*TorusPolynomial
-function torusPolynomialAddMulZTo(result::TorusPolynomial, p::Int32, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] += p * poly2.coefsT[i]
-    end
-end
-
-# TorusPolynomial - p*TorusPolynomial
-function torusPolynomialSubMulZ(result::TorusPolynomial, poly1::TorusPolynomial, p::Int32, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] = poly1.coefsT[i] - p * poly2.coefsT[i]
-    end
-end
-
-# result= (X^{a}-1)*source
+# result = (X^ai-1) * source
 function torusPolynomialMulByXaiMinusOne(
-        result::TorusPolynomial, a::Int32, source::TorusPolynomial)
+        result::TorusPolynomial, ai::Int32, source::TorusPolynomial)
 
     N = source.N
     out = result.coefsT
     in_ = source.coefsT
 
-    @assert (a >= 0 && a < 2 * N)
+    @assert (ai >= 0 && ai < 2 * N)
 
-    if a < N
-        for i in 0:(a-1) # sur que i-a<0
-            out[i + 1] = -in_[i - a + N + 1] - in_[i + 1]
+    if ai < N
+        for i in 0:(ai-1) # sur que i-a<0
+            out[i + 1] = -in_[i - ai + N + 1] - in_[i + 1]
         end
 
-        for i in a:(N-1) # sur que N>i-a>=0
-            out[i + 1] = in_[i - a + 1] - in_[i + 1]
+        for i in ai:(N-1) # sur que N>i-a>=0
+            out[i + 1] = in_[i - ai + 1] - in_[i + 1]
         end
     else
-        aa = a - N
+        aa = ai - N
         for i in 0:(aa-1) # sur que i-a<0
             out[i + 1] = in_[i - aa + N + 1] - in_[i + 1]
         end
@@ -559,118 +285,4 @@ function torusPolynomialMulByXai(
             out[i + 1] = -in_[i - aa + 1]
         end
     end
-end
-
-
-# TorusPolynomial -= p*TorusPolynomial
-function torusPolynomialSubMulZTo(result::TorusPolynomial, p::Int32, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] -= p * poly2.coefsT[i]
-    end
-end
-
-
-# Norme Euclidienne d'un IntPolynomial
-function intPolynomialNormSq2(poly::IntPolynomial)
-    temp1::Int32 = 0
-    for i in 1:poly.N
-        temp0 = poly.coefs[i] * poly.coefs[i]
-        temp1 += temp0
-    end
-    temp1
-end
-
-# Sets to zero
-function intPolynomialClear(poly::IntPolynomial)
-    for i in 1:poly.N
-        poly.coefs[i] = 0
-    end
-end
-
-# Sets to zero
-function intPolynomialCopy(result::IntPolynomial, source::IntPolynomial)
-    for i in 1:result.N
-        result.coefs[i] = source.coefs[i]
-    end
-end
-
-# accum += source
-function intPolynomialAddTo(accum::IntPolynomial, source::IntPolynomial)
-    for i in 1:accum.N
-        accum.coefs[i] += source.coefs[i]
-    end
-end
-
-# result = (X^ai-1) * source
-function torusPolynomialMulByXaiMinusOne(
-        result::IntPolynomial, ai::Int32, source::IntPolynomial)
-
-    N = source.N
-    out = result.coefs
-    in_ = source.coefs
-
-    @assert (ai >= 0 && ai < 2 * N)
-
-    if ai < N
-        for i in 0:(ai-1) # sur que i-a<0
-            out[i + 1] = -in_[i - ai + N + 1] - in_[i + 1]
-        end
-
-        for i in ai:(N-1) # sur que N>i-a>=0
-            out[i + 1] = in_[i - ai + 1] - in_[i + 1]
-        end
-    else
-        aa = ai - N
-        for i in 0:(aa-1) # sur que i-a<0
-            out[i + 1] = in_[i - aa + N + 1] - in_[i + 1]
-        end
-        for i in aa:(N-1) # sur que N>i-a>=0
-            out[i + 1] = -in_[i - aa + 1] - in_[i + 1]
-        end
-    end
-end
-
-# Norme infini de la distance entre deux TorusPolynomial
-function torusPolynomialNormInftyDist(poly1::TorusPolynomial, poly2::TorusPolynomial)
-    N = poly1.N
-    norm_::Float64 = 0
-
-    # Max between the coefficients of abs(poly1-poly2)
-    for i in 1:N
-        r = abs(t32tod(poly1.coefsT[i] - poly2.coefsT[i]))
-        if r > norm_
-            norm_ = r
-        end
-    end
-
-    norm_
-end
-
-# Norme 2 d'un IntPolynomial
-function intPolynomialNorm2sq(poly::IntPolynomial)
-    N = poly.N
-    norm_::Float64 = 0
-
-    for i in 1:N
-        r = Float64(poly.coefs[i])
-        norm_ += r * r
-    end
-
-    norm_
-end
-
-# Norme infini de la distance entre deux IntPolynomial
-function intPolynomialNormInftyDist(poly1::IntPolynomial, poly2::IntPolynomial)
-    N = poly1.N
-    norm_ = 0
-
-    # Max between the coefficients of abs(poly1-poly2)
-    for i in 1:N
-        r = Float64(abs(poly1.coefs[i] - poly2.coefs[i]))
-        if r > norm_
-            norm_ = r
-        end
-    end
-
-    norm_
 end

@@ -80,11 +80,6 @@ function new_random_gate_bootstrapping_secret_keyset(params::TFheGateBootstrappi
 end
 
 
-# generate a new unititialized ciphertext
-function new_gate_bootstrapping_ciphertext(params::TFheGateBootstrappingParameterSet)
-    LweSample(params.in_out_params)
-end
-
 # generate a new unititialized ciphertext array of length nbelems
 function new_gate_bootstrapping_ciphertext_array(nbelems::Int, params::TFheGateBootstrappingParameterSet)
     [LweSample(params.in_out_params) for i in 1:nbelems]

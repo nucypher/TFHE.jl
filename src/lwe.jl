@@ -87,25 +87,7 @@ function lwePhase(sample::LweSample, key::LweKey)
 end
 
 
-# This function computes the decryption of sample by using key
-# The constant Msize indicates the message space and is used to approximate the phase
-function lweSymDecrypt(sample::LweSample, key::LweKey, Msize::Int32)
-    phi = lwePhase(sample, key)
-    approxPhase(phi, Msize)
-end
-
-
 # Arithmetic operations on Lwe samples
-
-# result = (0,0)
-function lweClear(result::LweSample, params::LweParams)
-    n = params.n
-    for i in 0:(n-1)
-        result.a[i+1] = 0
-    end
-    result.b = 0
-    result.current_variance = 0.
-end
 
 
 # result = sample
@@ -227,76 +209,6 @@ end
 
 
 #=
-Renormalization of KS
- * compute the error of the KS that has been generated and translate the ks to recenter the gaussian in 0
-=#
-function renormalizeKSkey(ks::LweKeySwitchKey, out_key::LweKey, in_key::Array{Int32, 1})
-    n = ks.n
-    basebit = ks.basebit
-    t = ks.t
-    base::Int32 = 1<<basebit
-
-    error::Torus32 = 0
-    # double err_norm = 0;
-
-    # compute the average error
-    for i in 0:(n-1)
-        for j in 0:(t-1)
-            for h in 1:(base-1) # pas le terme en 0
-                # compute the phase
-                phase::Torus32 = lwePhase(ks.ks[h+1,j+1,i+1], out_key)
-                # compute the error
-                x::Torus32 = (in_key[i+1] * h) * (1 << (32 - (j + 1) * basebit))
-                temp_err = phase - x
-                # sum all errors
-                error += temp_err
-            end
-        end
-    end
-
-    nb::Int32 = n * t * (base - 1)
-    error = dtot32(t32tod(error) / nb)
-
-    # relinearize
-    for i in 0:(n-1)
-        for j in 0:(t-1)
-            for h in 1:(base-1) # pas le terme en 0
-                ks.ks[h+1,j+1,i+1].b -= error
-            end
-        end
-    end
-end
-
-
-#=
- * fills the KeySwitching key array
- * @param result The (n x t x base) array of samples.
- *        result[i][j][k] encodes k.s[i]/base^(j+1)
- * @param out_key The LWE key to encode all the output samples
- * @param out_alpha The standard deviation of all output samples
- * @param in_key The (binary) input key
- * @param n The size of the input key
- * @param t The precision of the keyswitch (technically, 1/2.base^t)
- * @param basebit Log_2 of base
-=#
-function lweCreateKeySwitchKey_fromArray(result::Array{LweSample, 3},
-        out_key::LweKey, out_alpha::Float64,
-        in_key::Array{Int32, 1}, n::Int32, t::Int32, basebit::Int32)
-
-    base::Int32 = 1 << basebit # base=2 in [CGGI16]
-
-    for i in 0:(n-1)
-        for j in 0:(t-1)
-            for k in 0:(base-1)
-                x::Torus32 = (in_key[i+1] * k) * (1 << (32 - (j + 1) * basebit))
-                lweSymEncrypt(result[i+1,j+1,k+1], x, out_alpha, out_key)
-            end
-        end
-    end
-end
-
-
-#=
  * translates the message of the result sample by -sum(a[i].s[i]) where s is the secret
  * embedded in ks.
  * @param result the LWE sample to translate by -sum(ai.si).
@@ -326,21 +238,6 @@ function lweKeySwitchTranslate_fromArray(result::LweSample,
             end
         end
     end
-end
-
-
-function lweCreateKeySwitchKey_old(result::LweKeySwitchKey, in_key::LweKey, out_key::LweKey)
-    n = result.n
-    basebit = result.basebit
-    t = result.t
-
-    # TODO check the parameters
-    lweCreateKeySwitchKey_fromArray(result.ks,
-        out_key, out_key.params.alpha_min,
-        in_key.key, n, t, basebit)
-
-    # renormalize
-    renormalizeKSkey(result, out_key, in_key.key) # ILA: reverifier
 end
 
 

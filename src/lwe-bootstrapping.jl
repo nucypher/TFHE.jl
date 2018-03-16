@@ -71,137 +71,6 @@ struct LweBootstrappingKeyFFT
 end
 
 
-function tfhe_MuxRotate(result::TLweSample, accum::TLweSample, bki::TGswSample, barai::Int32,
-                    bk_params::TGswParams)
-    # ACC = BKi*[(X^barai-1)*ACC]+ACC
-    # temp = (X^barai-1)*ACC
-    tLweMulByXaiMinusOne(result, barai, accum, bk_params.tlwe_params)
-    # temp *= BKi
-    tGswExternMulToTLwe(result, bki, bk_params)
-    # ACC += temp
-    tLweAddTo(result, accum, bk_params.tlwe_params)
-end
-
-
-#=
- * multiply the accumulator by X^sum(bara_i.s_i)
- * @param accum the TLWE sample to multiply
- * @param bk An array of n TGSW samples where bk_i encodes s_i
- * @param bara An array of n coefficients between 0 and 2N-1
- * @param bk_params The parameters of bk
-=#
-function tfhe_blindRotate(
-        accum::TLweSample, bk::TGswSample, bara::Array{Int32, 1}, n::Int32, bk_params::TGswParams)
-
-    temp = TLweSample(bk_params.tlwe_params)
-    temp2 = temp
-    temp3 = accum
-
-    for i in 0:(n-1)
-        barai = bara[i+1]
-        if barai == 0
-            continue #indeed, this is an easy case!
-        end
-
-        tfhe_MuxRotate(temp2, temp3, bk[i+1], barai, bk_params)
-        temp2, temp3 = temp3, temp2
-    end
-
-    if temp3 != accum
-        tLweCopy(accum, temp3, bk_params.tlwe_params)
-    end
-end
-
-#=
- * result = LWE(v_p) where p=barb-sum(bara_i.s_i) mod 2N
- * @param result the output LWE sample
- * @param v a 2N-elt anticyclic function (represented by a TorusPolynomial)
- * @param bk An array of n TGSW samples where bk_i encodes s_i
- * @param barb A coefficients between 0 and 2N-1
- * @param bara An array of n coefficients between 0 and 2N-1
- * @param bk_params The parameters of bk
-=#
-function tfhe_blindRotateAndExtract(result::LweSample,
-                                       v::TorusPolynomial,
-                                       bk::TGswSample,
-                                       barb::Int32,
-                                       bara::Array{Int32, 1},
-                                       n::Int32,
-                                       bk_params::TGswParams)
-
-    accum_params = bk_params.tlwe_params
-    extract_params = accum_params.extracted_lweparams
-    N = accum_params.N
-    _2N = 2 * N
-
-    testvectbis = TorusPolynomial(N)
-    acc = TLweSample(accum_params)
-
-    if barb != 0
-        torusPolynomialMulByXai(testvectbis, _2N - barb, v)
-    else
-        torusPolynomialCopy(testvectbis, v)
-    end
-    tLweNoiselessTrivial(acc, testvectbis, accum_params)
-    tfhe_blindRotate(acc, bk, bara, n, bk_params)
-    tLweExtractLweSample(result, acc, extract_params, accum_params)
-end
-
-
-#=
- * result = LWE(mu) iff phase(x)>0, LWE(-mu) iff phase(x)<0
- * @param result The resulting LweSample
- * @param bk The bootstrapping + keyswitch key
- * @param mu The output message (if phase(x)>0)
- * @param x The input sample
-=#
-function tfhe_bootstrap_woKS(result::LweSample,
-                                bk::LweBootstrappingKey,
-                                mu::Torus32, x::LweSample)
-
-    bk_params = bk.bk_params
-    accum_params = bk.accum_params
-    in_params = bk.in_out_params
-    N = accum_params.N
-    Nx2 = 2 * N
-    n = in_params.n
-
-    testvect = TorusPolynomial(N)
-    bara = Array{Int32, 1}(N)
-
-    barb = modSwitchFromTorus32(x.b, Nx2)
-    for i in 0:(n-1)
-        bara[i+1] = modSwitchFromTorus32(x.a[i+1], Nx2)
-    end
-
-    #the initial testvec = [mu,mu,mu,...,mu]
-    for i in 0:(N-1)
-        testvect.coefsT[i+1] = mu
-    end
-
-    tfhe_blindRotateAndExtract(result, testvect, bk.bk, barb, bara, n, bk_params)
-end
-
-
-#=
- * result = LWE(mu) iff phase(x)>0, LWE(-mu) iff phase(x)<0
- * @param result The resulting LweSample
- * @param bk The bootstrapping + keyswitch key
- * @param mu The output message (if phase(x)>0)
- * @param x The input sample
-=#
-function tfhe_bootstrap(result::LweSample,
-                           bk::LweBootstrappingKey,
-                           mu::Torus32, x::LweSample)
-
-    u = LweSample(bk.accum_params.extracted_lweparams)
-
-    tfhe_bootstrap_woKS(u, bk, mu, x)
-    # Key Switching
-    lweKeySwitch(result, bk.ks, u)
-end
-
-
 function tfhe_createLweBootstrappingKey(
         bk::LweBootstrappingKey,
         key_in::LweKey,
@@ -234,22 +103,6 @@ function tfhe_createLweBootstrappingKey(
     for i in 0:(n-1)
         tGswSymEncryptInt(bk.bk[i+1], kin[i+1], alpha, rgsw_key)
     end
-end
-
-
-# allocate memory space for a LweBootstrappingKey
-
-#initialize the key structure
-#(equivalent of the C++ constructor)
-function init_LweBootstrappingKey_array(
-        nbelts::Int32, ks_t::Int32, ks_basebit::Int32,
-        in_out_params::LweParams, bk_params::TGswParams)
-
-    obj = Array{LweBootstrappingKey, 1}(nbelts);
-    for i in 0:(nbelts-1)
-        init_LweBootstrappingKey(obj[i+1], ks_t, ks_basebit, in_out_params, bk_params)
-    end
-    obj
 end
 
 
@@ -407,15 +260,4 @@ function tfhe_bootstrap_FFT(result::LweSample,
     # Key switching
     lweKeySwitch(result, bk.ks, u)
 
-end
-
-
-# initialize the key structure
-function init_LweBootstrappingKeyFFT_array(
-        nbelts::Int32, obj::LweBootstrappingKeyFFT, nk::LweBootstrappingKey)
-    obj = Array{LweBootstrappingKeyFFT, 1}(nbelts)
-    for i in 0:(nbelts-1)
-        init_LweBootstrappingKeyFFT(obj[i+1], bk)
-    end
-    obj
 end

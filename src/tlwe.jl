@@ -139,71 +139,7 @@ function tLweSymEncryptZero(result::TLweSample, alpha::Float64, key::TLweKey)
 end
 
 
-function tLweSymEncrypt(result::TLweSample, message::TorusPolynomial, alpha::Float64, key::TLweKey)
-    N = key.params.N
-
-    tLweSymEncryptZero(result, alpha, key)
-
-    for j in 0:(N-1)
-        result.a[result.k+1].coefsT[j+1] += message.coefsT[j+1]
-    end
-end
-
-
-# encrypts a constant message
-function tLweSymEncryptT(result::TLweSample, message::Torus32, alpha::Float64, key::TLweKey)
-    tLweSymEncryptZero(result, alpha, key)
-    result.a[result.k+1].coefsT[0+1] += message
-end
-
-
-# This function computes the phase of sample by using key : phi = b - a.s
-function tLwePhase(phase::TorusPolynomial, sample::TLweSample, key::TLweKey)
-    k = key.params.k
-    torusPolynomialCopy(phase, sample.a[sample.k+1]) # phi = b
-    for i in 0:(k-1)
-        torusPolynomialSubMulR(phase, key.key[i+1], sample.a[i+1])
-    end
-end
-
-
-# This function computes the approximation of the phase
-# à revoir, surtout le Msize
-function tLweApproxPhase(message::TorusPolynomial, phase::TorusPolynomial, Msize::Int32, N::Int32)
-    for i in 0:(N-1)
-        message.coefsT[i+1] = approxPhase(phase.coefsT[i+1], Msize)
-    end
-end
-
-
-function tLweSymDecrypt(result::TorusPolynomial, sample::TLweSample, key::TLweKey, Msize::Int32)
-    tLwePhase(result, sample, key)
-    tLweApproxPhase(result, result, Msize, key.params.N)
-end
-
-
-function tLweSymDecryptT(sample::TLweSample, key::TLweKey, Msize::Int32)
-    phase = TorusPolynomial(key.params.N)
-
-    tLwePhase(phase, sample, key)
-    approxPhase(phase.coefsT[0+1], Msize)
-end
-
-
 # Arithmetic operations on TLwe samples
-
-# result = (0,0)
-function tLweClear(result::TLweSample, params::TLweParams)
-    k = params.k
-
-    for i in 0:(k-1)
-        torusPolynomialClear(result.a[i+1])
-    end
-
-    torusPolynomialClear(result.a[result.k+1])
-    result.current_variance = 0.
-end
-
 
 # result = sample
 function tLweCopy(result::TLweSample, sample::TLweSample, params::TLweParams)
@@ -231,18 +167,6 @@ function tLweNoiselessTrivial(result::TLweSample, mu::TorusPolynomial, params::T
 end
 
 
-# result = (0,mu) where mu is constant
-function tLweNoiselessTrivialT(result::TLweSample, mu::Torus32, params::TLweParams)
-    k = params.k
-
-    for i in 0:(k-1)
-        torusPolynomialClear(result.a[i+1])
-    end
-    torusPolynomialClear(result.a[result.k+1])
-    result.a[result.k+1].coefsT[0+1] = mu
-    result.current_variance = 0.
-end
-
 # result = result + sample
 function tLweAddTo(result::TLweSample, sample::TLweSample, params::TLweParams)
     k = params.k
@@ -255,72 +179,11 @@ function tLweAddTo(result::TLweSample, sample::TLweSample, params::TLweParams)
 end
 
 
-# result = result - sample
-function tLweSubTo(result::TLweSample, sample::TLweSample, params::TLweParams)
-    k = params.k
-
-    for i in 0:(k-1)
-        torusPolynomialSubTo(result.a[i+1], sample.a[i+1])
-    end
-    torusPolynomialSubTo(result.a[result.k+1], sample.a[sample.k+1])
-    result.current_variance += sample.current_variance
-end
-
-
-# result = result + p.sample
-function tLweAddMulTo(result::TLweSample, p::Int32, sample::TLweSample, params::TLweParams)
-    k = params.k
-
-    for i in 0:(k-1)
-        torusPolynomialAddMulZTo(result.a[i+1], p, sample.a[i+1])
-    end
-    torusPolynomialAddMulZTo(result.a[result.k+1], p, sample.a[sample.k+1])
-    result.current_variance += (p * p) * sample.current_variance
-end
-
-
-# result = result - p.sample
-function tLweSubMulTo(result::TLweSample, p::Int32, sample::TLweSample, params::TLweParams)
-    k = params.k
-    for i in 0:(k-1)
-        torusPolynomialSubMulZTo(result.a[i+1], p, sample.a[i+1])
-    end
-    torusPolynomialSubMulZTo(result.a[result.k+1], p, sample.a[sample.k+1])
-    result.current_variance += (p * p) * sample.current_variance
-end
-
-
-# result = result + p.sample
-function
-tLweAddMulRTo(result::TLweSample, p::IntPolynomial, sample::TLweSample, params::TLweParams)
-    k = params.k
-    for i in 0:k
-        torusPolynomialAddMulR(result.a[i+1], p, sample.a[i+1])
-    end
-    result.current_variance += intPolynomialNormSq2(p) * sample.current_variance
-end
-
-
 # mult externe de X^ai-1 par bki
 function tLweMulByXaiMinusOne(result::TLweSample, ai::Int32, bk::TLweSample, params::TLweParams)
     k = params.k
     for i in 0:k
         torusPolynomialMulByXaiMinusOne(result.a[i+1], ai, bk.a[i+1])
-    end
-end
-
-
-# result += (0,x)
-function tLweAddTTo(result::TLweSample, pos::Int32, x::Torus32, params::TLweParams)
-    result.a[pos+1].coefsT[0+1] += x
-end
-
-
-# result += p*(0,x)
-function tLweAddRTTo(result::TLweSample, pos::Int32, p::IntPolynomial, x::Torus32, params::TLweParams)
-    N = params.N
-    for i in 0:(N-1)
-        result.a[pos+1].coefsT[i+1] += p.coefs[i+1] * x
     end
 end
 
