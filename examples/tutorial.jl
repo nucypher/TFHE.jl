@@ -13,14 +13,14 @@ function encrypt()
     plaintext1 = Int16(2017)
     ciphertext1 = [TFHEEncryptedBit(params) for i in 1:16]
     for i in 1:16
-        tfhe_encrypt_bit!(secret_key, ciphertext1[i], ((plaintext1>>(i-1)) & 1) != 0)
+        tfhe_encrypt_bit!(rng, secret_key, ciphertext1[i], ((plaintext1>>(i-1)) & 1) != 0)
     end
 
     # generate encrypt the 16 bits of 42
     plaintext2 = Int16(42)
     ciphertext2 = [TFHEEncryptedBit(params) for i in 1:16]
     for i in 1:16
-        tfhe_encrypt_bit!(secret_key, ciphertext2[i], ((plaintext2>>(i-1)) & 1) != 0)
+        tfhe_encrypt_bit!(rng, secret_key, ciphertext2[i], ((plaintext2>>(i-1)) & 1) != 0)
     end
 
     secret_key, cloud_key, ciphertext1, ciphertext2

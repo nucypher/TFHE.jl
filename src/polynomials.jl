@@ -193,9 +193,9 @@ function torusPolynomialClear(result::TorusPolynomial)
 end
 
 # TorusPolynomial = random
-function torusPolynomialUniform(result::TorusPolynomial)
+function torusPolynomialUniform(rng::AbstractRNG, result::TorusPolynomial)
     for i in 1:result.N
-        result.coefsT[i] = uniformTorus32_distrib(generator)
+        result.coefsT[i] = rand_uniform_torus32(rng)
     end
 end
 

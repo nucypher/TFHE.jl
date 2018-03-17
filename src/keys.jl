@@ -54,14 +54,14 @@ function tfhe_key_pair(rng::AbstractRNG)
     params = TFHEParameters()
 
     lwe_key = LweKey(params.in_out_params)
-    lweKeyGen(lwe_key)
+    lweKeyGen(rng, lwe_key)
     tgsw_key = TGswKey(params.tgsw_params)
-    tGswKeyGen(tgsw_key)
+    tGswKeyGen(rng, tgsw_key)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 
     bk = LweBootstrappingKey(
         params.ks_t, params.ks_basebit, params.in_out_params, params.tgsw_params)
-    tfhe_createLweBootstrappingKey(bk, lwe_key, tgsw_key)
+    tfhe_createLweBootstrappingKey(rng, bk, lwe_key, tgsw_key)
     bkFFT = LweBootstrappingKeyFFT(bk)
 
     cloud_key = TFHECloudKey(params, bk, bkFFT)
@@ -70,11 +70,11 @@ end
 
 
 # encrypts a boolean
-function tfhe_encrypt_bit!(key::TFHESecretKey, result::TFHEEncryptedBit, message::Bool)
+function tfhe_encrypt_bit!(rng::AbstractRNG, key::TFHESecretKey, result::TFHEEncryptedBit, message::Bool)
     _1s8::Torus32 = modSwitchToTorus32(1, 8)
     mu::Torus32 = message ? _1s8 : -_1s8
     alpha = key.params.in_out_params.alpha_min # TODO: specify noise
-    lweSymEncrypt(result, mu, alpha, key.lwe_key)
+    lweSymEncrypt(rng, result, mu, alpha, key.lwe_key)
 end
 
 

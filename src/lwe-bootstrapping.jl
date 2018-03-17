@@ -65,6 +65,7 @@ end
 
 
 function tfhe_createLweBootstrappingKey(
+        rng::AbstractRNG,
         bk::LweBootstrappingKey,
         key_in::LweKey,
         rgsw_key::TGswKey)
@@ -82,7 +83,7 @@ function tfhe_createLweBootstrappingKey(
     extracted_key = LweKey(extract_params)
     tLweExtractKey(extracted_key, accum_key)
 
-    lweCreateKeySwitchKey(bk.ks, extracted_key, key_in)
+    lweCreateKeySwitchKey(rng, bk.ks, extracted_key, key_in)
 
     # TGswSample* bk; #/< the bootstrapping key (s.s")
     kin = key_in.key
@@ -94,7 +95,7 @@ function tfhe_createLweBootstrappingKey(
     #cout << "create the bootstrapping key bk ("  << "  " << n*kpl*(k+1)*N*4 << " bytes)" << endl;
     #cout << "  with noise_stdev: " << alpha << endl;
     for i in 0:(n-1)
-        tGswSymEncryptInt(bk.bk[i+1], kin[i+1], alpha, rgsw_key)
+        tGswSymEncryptInt(rng, bk.bk[i+1], kin[i+1], alpha, rgsw_key)
     end
 end
 

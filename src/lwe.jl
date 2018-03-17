@@ -30,12 +30,12 @@ const TFHEEncryptedBit = LweSample
  * The Lwe sample for the result must be allocated and initialized
  * (this means that the parameters are already in the result)
 =#
-function lweSymEncrypt(result::LweSample, message::Torus32, alpha::Float64, key::LweKey)
+function lweSymEncrypt(rng::AbstractRNG, result::LweSample, message::Torus32, alpha::Float64, key::LweKey)
     n = key.params.n
 
-    result.b = gaussian32(message, alpha)
+    result.b = rand_gaussian_torus32(rng, message, alpha)
     for i in 0:(n-1)
-        result.a[i+1] = uniformTorus32_distrib(generator)
+        result.a[i+1] = rand_uniform_torus32(rng)
         result.b += result.a[i+1] * key.key[i+1]
     end
     result.current_variance = alpha * alpha
@@ -45,6 +45,7 @@ end
 
 # This function encrypts a message by using key and a given noise value
 function lweSymEncryptWithExternalNoise(
+        rng::AbstractRNG,
         result::LweSample, message::Torus32, noise::Float64, alpha::Float64, key::LweKey)
 
     n = key.params.n
@@ -52,7 +53,7 @@ function lweSymEncryptWithExternalNoise(
     result.b = message + dtot32(noise)
 
     for i in 0:(n-1)
-        result.a[i+1] = uniformTorus32_distrib(generator)
+        result.a[i+1] = rand_uniform_torus32(rng)
         result.b += result.a[i+1] * key.key[i+1]
     end
     result.current_variance = alpha * alpha
@@ -160,10 +161,10 @@ function lweSubMulTo(result::LweSample, p::Int32, sample::LweSample, params::Lwe
 end
 
 
-function lweKeyGen(result::LweKey)
+function lweKeyGen(rng::AbstractRNG, result::LweKey)
     n = result.params.n
     for i in 0:(n-1)
-        result.key[i+1] = rand(generator, 0:1)
+        result.key[i+1] = rand_uniform_int32(rng)
     end
 end
 
@@ -233,7 +234,7 @@ Create the key switching key: normalize the error in the beginning
  * recenter the noises
  * generate the ks by creating noiseless encryprions and then add the noise
 =#
-function lweCreateKeySwitchKey(result::LweKeySwitchKey, in_key::LweKey, out_key::LweKey)
+function lweCreateKeySwitchKey(rng::AbstractRNG, result::LweKeySwitchKey, in_key::LweKey, out_key::LweKey)
     n = result.n
     t = result.t
     basebit = result.basebit
@@ -247,7 +248,7 @@ function lweCreateKeySwitchKey(result::LweKeySwitchKey, in_key::LweKey, out_key:
     # chose a random vector of gaussian noises
     noise = Array{Float64, 1}(sizeks)
     for i in 0:(sizeks-1)
-        noise[i+1] = randn(generator) * alpha
+        noise[i+1] = rand_gaussian_float(rng, alpha)
         err += noise[i+1]
     end
     # recenter the noises
@@ -263,20 +264,10 @@ function lweCreateKeySwitchKey(result::LweKeySwitchKey, in_key::LweKey, out_key:
 
             # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
             lweNoiselessTrivial(result.ks[0+1,j+1,i+1], Torus32(0), out_key.params)
-            #lweSymEncrypt(&result.ks[i][j][0],0,alpha,out_key);
             for h in 1:(base-1) # pas le terme en 0
-                #=
-                // noiseless encryption
-                result.ks[i][j][h].b = (in_key.key[i]*h)*(1<<(32-(j+1)*basebit));
-                for (int32_t p = 0; p < n_out; ++p) {
-                    result.ks[i][j][h].a[p] = uniformTorus32_distrib(generator);
-                    result.ks[i][j][h].b += result.ks[i][j][h].a[p] * out_key.key[p];
-                }
-                // add the noise
-                result.ks[i][j][h].b += dtot32(noise[index]);
-                =#
                 mess::Torus32 = (in_key.key[i+1] * Int32(h)) * Int32(1 << (32 - (j + 1) * basebit))
-                lweSymEncryptWithExternalNoise(result.ks[h+1,j+1,i+1], mess, noise[index+1], alpha, out_key)
+                lweSymEncryptWithExternalNoise(
+                    rng, result.ks[h+1,j+1,i+1], mess, noise[index+1], alpha, out_key)
                 index += 1
             end
         end

@@ -1,26 +1,25 @@
 const Torus32 = Int32
 
 
-generator = MersenneTwister(0)
-
-
-#uniform_int_distribution<Torus32> uniformTorus32_distrib(INT32_MIN, INT32_MAX);
-function uniformTorus32_distrib(generator)
-    rand(generator, Torus32)
+function rand_uniform_int32(rng::AbstractRNG)
+    rand(rng, Int32(0):Int32(1))
 end
 
 
-function tfhe_random_generator_setSeed(values)
-    for value in values
-        srand(generator, value)
-    end
+function rand_uniform_torus32(rng::AbstractRNG)
+    rand(rng, Torus32)
+end
+
+
+function rand_gaussian_float(rng::AbstractRNG, sigma::Float64)
+    randn(rng) * sigma
 end
 
 
 # Gaussian sample centered in message, with standard deviation sigma
-function gaussian32(message::Torus32, sigma::Float64)
+function rand_gaussian_torus32(rng::AbstractRNG, message::Torus32, sigma::Float64)
     # Attention: all the implementation will use the stdev instead of the gaussian fourier param
-    err = randn(generator) * sigma
+    err = randn(rng) * sigma
     message + dtot32(err)
 end
 

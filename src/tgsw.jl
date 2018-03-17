@@ -62,8 +62,8 @@ end
 
 # TGsw
 # generate a tgsw key (in fact, a tlwe key)
-function tGswKeyGen(result::TGswKey)
-    tLweKeyGen(result.tlwe_key)
+function tGswKeyGen(rng::AbstractRNG, result::TGswKey)
+    tLweKeyGen(rng, result.tlwe_key)
 end
 
 
@@ -129,19 +129,19 @@ end
 
 
 # Result = tGsw(0)
-function tGswEncryptZero(result::TGswSample, alpha::Float64, key::TGswKey)
+function tGswEncryptZero(rng::AbstractRNG, result::TGswSample, alpha::Float64, key::TGswKey)
     rlkey = key.tlwe_key
     kpl = key.params.kpl
 
     for p in 0:(kpl-1)
-        tLweSymEncryptZero(result.all_sample[p+1], alpha, rlkey)
+        tLweSymEncryptZero(rng, result.all_sample[p+1], alpha, rlkey)
     end
 end
 
 
 # encrypts a constant message
-function tGswSymEncryptInt(result::TGswSample, message::Int32, alpha::Float64, key::TGswKey)
-    tGswEncryptZero(result, alpha, key)
+function tGswSymEncryptInt(rng::AbstractRNG, result::TGswSample, message::Int32, alpha::Float64, key::TGswKey)
+    tGswEncryptZero(rng, result, alpha, key)
     tGswAddMuIntH(result, message, key.params)
 end
 

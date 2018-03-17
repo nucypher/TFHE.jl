@@ -101,28 +101,28 @@ end
 
 
 # TLwe
-function tLweKeyGen(result::TLweKey)
+function tLweKeyGen(rng::AbstractRNG, result::TLweKey)
     N = result.params.N
     k = result.params.k
     for i in 0:(k-1)
         for j in 0:(N-1)
-            result.key[i+1].coefs[j+1] = rand(generator, 0:1)
+            result.key[i+1].coefs[j+1] = rand_uniform_int32(rng)
         end
     end
 end
 
 
 # create an homogeneous tlwe sample
-function tLweSymEncryptZero(result::TLweSample, alpha::Float64, key::TLweKey)
+function tLweSymEncryptZero(rng::AbstractRNG, result::TLweSample, alpha::Float64, key::TLweKey)
     N = key.params.N
     k = key.params.k
 
     for j in 0:(N-1)
-        result.a[result.k+1].coefsT[j+1] = gaussian32(Int32(0), alpha)
+        result.a[result.k+1].coefsT[j+1] = rand_gaussian_torus32(rng, Int32(0), alpha)
     end
 
     for i in 0:(k-1)
-        torusPolynomialUniform(result.a[i+1])
+        torusPolynomialUniform(rng, result.a[i+1])
         torusPolynomialAddMulR(result.a[result.k+1], key.key[i+1], result.a[i+1])
     end
 
