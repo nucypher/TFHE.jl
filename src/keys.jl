@@ -56,12 +56,9 @@ function tfhe_key_pair(rng::AbstractRNG)
     tgsw_key = TGswKey(rng, params.tgsw_params)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 
-    bk = LweBootstrappingKey(
-        params.ks_t, params.ks_basebit, params.in_out_params, params.tgsw_params)
-    tfhe_createLweBootstrappingKey(rng, bk, lwe_key, tgsw_key)
-    bkFFT = LweBootstrappingKeyFFT(bk)
-
+    bkFFT = LweBootstrappingKeyFFT(rng, params.ks_t, params.ks_basebit, lwe_key, tgsw_key)
     cloud_key = TFHECloudKey(params, bkFFT)
+
     secret_key, cloud_key
 end
 

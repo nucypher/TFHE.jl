@@ -1,23 +1,29 @@
-struct LweBootstrappingKey
-    in_out_params :: LweParams # paramètre de l'input et de l'output. key: s
-    bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
-    accum_params :: TLweParams # params of the accum variable key: s"
-    extract_params :: LweParams # params after extraction: key: s'
-    bk :: Array{TGswSample, 1} # the bootstrapping key (s->s")
-    ks :: LweKeySwitchKey # the keyswitch key (s'->s)
+function lwe_bootstrapping_key(
+        rng::AbstractRNG, ks_t::Int32, ks_basebit::Int32, key_in::LweKey, rgsw_key::TGswKey)
 
-    function LweBootstrappingKey(
-            ks_t::Int32, ks_basebit::Int32, in_out_params::LweParams, bk_params::TGswParams)
-        accum_params = bk_params.tlwe_params
-        extract_params = accum_params.extracted_lweparams
-        n = in_out_params.n
-        N = extract_params.n
+    bk_params = rgsw_key.params
+    in_out_params = key_in.params
+    accum_params = bk_params.tlwe_params
+    extract_params = accum_params.extracted_lweparams
 
-        bk = new_TGswSample_array(n, bk_params)
-        ks = LweKeySwitchKey(N, ks_t, ks_basebit, in_out_params)
+    n = in_out_params.n
+    N = extract_params.n
 
-        new(in_out_params, bk_params, accum_params, extract_params, bk, ks)
+    accum_key = rgsw_key.tlwe_key
+    extracted_key = LweKey(extract_params, accum_key)
+
+    ks = LweKeySwitchKey(N, ks_t, ks_basebit, in_out_params)
+    lweCreateKeySwitchKey(rng, ks, extracted_key, key_in)
+
+    bk = new_TGswSample_array(n, bk_params)
+    kin = key_in.key
+    alpha = accum_params.alpha_min
+    n = in_out_params.n
+    for i in 0:(n-1)
+        tGswSymEncryptInt(rng, bk[i+1], kin[i+1], alpha, rgsw_key)
     end
+
+    bk, ks
 end
 
 
@@ -29,73 +35,27 @@ struct LweBootstrappingKeyFFT
     bkFFT :: Array{TGswSampleFFT, 1} # the bootstrapping key (s->s")
     ks :: LweKeySwitchKey # the keyswitch key (s'->s)
 
-    #(equivalent of the C++ constructor)
-    function LweBootstrappingKeyFFT(bk::LweBootstrappingKey)
+    function LweBootstrappingKeyFFT(
+            rng::AbstractRNG, ks_t::Int32, ks_basebit::Int32, lwe_key::LweKey, tgsw_key::TGswKey)
 
-        in_out_params = bk.in_out_params
-        bk_params = bk.bk_params
+        in_out_params = lwe_key.params
+        bk_params = tgsw_key.params
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
-        n = in_out_params.n
-        t = bk.ks.t
-        basebit = bk.ks.basebit
-        base = bk.ks.base
-        N = extract_params.n
 
-        ks = LweKeySwitchKey(N, t, basebit, in_out_params)
-        # Copy the KeySwitching key
-        for i in 0:(N-1)
-            for j in 0:(t-1)
-                for p in 0:(base-1)
-                    lweCopy(ks.ks[p+1,j+1,i+1], bk.ks.ks[p+1,j+1,i+1], in_out_params)
-                end
-            end
-        end
+        bk, ks = lwe_bootstrapping_key(rng, ks_t, ks_basebit, lwe_key, tgsw_key)
+
+        n = in_out_params.n
 
         # Bootstrapping Key FFT
         bkFFT = [TGswSampleFFT(bk_params) for i in 1:n]
         for i in 0:(n-1)
-            tGswToFFTConvert(bkFFT[i+1], bk.bk[i+1], bk_params)
+            tGswToFFTConvert(bkFFT[i+1], bk[i+1], bk_params)
         end
 
         new(in_out_params, bk_params, accum_params, extract_params, bkFFT, ks)
     end
 
-end
-
-
-function tfhe_createLweBootstrappingKey(
-        rng::AbstractRNG,
-        bk::LweBootstrappingKey,
-        key_in::LweKey,
-        rgsw_key::TGswKey)
-
-    @assert bk.bk_params == rgsw_key.params
-    @assert bk.in_out_params == key_in.params
-
-    in_out_params = bk.in_out_params
-    bk_params = bk.bk_params
-    accum_params = bk_params.tlwe_params
-    extract_params = accum_params.extracted_lweparams
-
-    #LweKeySwitchKey* ks; #/< the keyswitch key (s'.s)
-    accum_key = rgsw_key.tlwe_key
-    extracted_key = LweKey(extract_params, accum_key)
-
-    lweCreateKeySwitchKey(rng, bk.ks, extracted_key, key_in)
-
-    # TGswSample* bk; #/< the bootstrapping key (s.s")
-    kin = key_in.key
-    alpha = accum_params.alpha_min
-    n = in_out_params.n
-    #const int32_t kpl = bk_params.kpl;
-    #const int32_t k = accum_params.k;
-    #n::Int32 = accum_params.N;
-    #cout << "create the bootstrapping key bk ("  << "  " << n*kpl*(k+1)*N*4 << " bytes)" << endl;
-    #cout << "  with noise_stdev: " << alpha << endl;
-    for i in 0:(n-1)
-        tGswSymEncryptInt(rng, bk.bk[i+1], kin[i+1], alpha, rgsw_key)
-    end
 end
 
 
