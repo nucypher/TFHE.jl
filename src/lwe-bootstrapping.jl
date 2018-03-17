@@ -12,8 +12,7 @@ function lwe_bootstrapping_key(
     accum_key = rgsw_key.tlwe_key
     extracted_key = LweKey(extract_params, accum_key)
 
-    ks = LweKeySwitchKey(N, ks_t, ks_basebit, in_out_params)
-    lweCreateKeySwitchKey(rng, ks, extracted_key, key_in)
+    ks = LweKeySwitchKey(rng, N, ks_t, ks_basebit, extracted_key, key_in)
 
     bk = new_TGswSample_array(n, bk_params)
     kin = key_in.key

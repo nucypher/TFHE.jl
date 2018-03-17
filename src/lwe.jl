@@ -192,15 +192,59 @@ struct LweKeySwitchKey
     ks :: Array{LweSample, 3} # the keyswitch elements: a n.l.base matrix
     # de taille n pointe vers ks1 un tableau dont les cases sont espaceés de ell positions
 
+    #=
+    Create the key switching key:
+     * normalize the error in the beginning
+     * chose a random vector of gaussian noises (same size as ks)
+     * recenter the noises
+     * generate the ks by creating noiseless encryprions and then add the noise
+    =#
     function LweKeySwitchKey(
-            n::Int32, t::Int32, basebit::Int32, out_params::LweParams)
+            rng::AbstractRNG,
+            n::Int32, t::Int32, basebit::Int32,
+            in_key::LweKey, out_key::LweKey)
+
+        out_params = out_key.params
+
         base::Int32 = 1 << basebit
         ks0_raw = [LweSample(out_params) for i in 1:(n * t * base)]
-        new(
-            n, t, basebit, base, out_params,
-            #ks0_raw,
-            #reshape(ks0_raw, Int64(n), Int64(t * base)),
-            reshape(ks0_raw, Int64(base), Int64(t), Int64(n)))
+        ks = reshape(ks0_raw, Int64(base), Int64(t), Int64(n))
+
+        alpha::Float64 = out_key.params.alpha_min
+        sizeks::Int32 = n * t * (base - 1)
+        #const int32_t n_out = out_key.params.n;
+
+        err::Float64 = 0
+
+        # chose a random vector of gaussian noises
+        noise = Array{Float64, 1}(sizeks)
+        for i in 0:(sizeks-1)
+            noise[i+1] = rand_gaussian_float(rng, alpha)
+            err += noise[i+1]
+        end
+        # recenter the noises
+        err = err / sizeks
+        for i in 0:(sizeks-1)
+            noise[i+1] -= err
+        end
+
+        # generate the ks
+        index :: Int32 = 0
+        for i in 0:(n-1)
+            for j in 0:(t-1)
+
+                # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
+                lweNoiselessTrivial(ks[0+1,j+1,i+1], Torus32(0), out_key.params)
+                for h in 1:(base-1) # pas le terme en 0
+                    mess::Torus32 = (in_key.key[i+1] * Int32(h)) * Int32(1 << (32 - (j + 1) * basebit))
+                    lweSymEncryptWithExternalNoise(
+                        rng, ks[h+1,j+1,i+1], mess, noise[index+1], alpha, out_key)
+                    index += 1
+                end
+            end
+        end
+
+        new(n, t, basebit, base, out_params, ks)
     end
 end
 
@@ -232,53 +276,6 @@ function lweKeySwitchTranslate_fromArray(result::LweSample,
             aij::UInt32 = (aibar >> (32 - (j + 1) * basebit)) & mask
             if aij != 0
                 lweSubTo(result, ks[aij+1,j+1,i+1], params)
-            end
-        end
-    end
-end
-
-
-#=
-Create the key switching key: normalize the error in the beginning
- * chose a random vector of gaussian noises (same size as ks)
- * recenter the noises
- * generate the ks by creating noiseless encryprions and then add the noise
-=#
-function lweCreateKeySwitchKey(rng::AbstractRNG, result::LweKeySwitchKey, in_key::LweKey, out_key::LweKey)
-    n = result.n
-    t = result.t
-    basebit = result.basebit
-    base::Int32 = 1 << basebit
-    alpha::Float64 = out_key.params.alpha_min
-    sizeks::Int32 = n * t * (base - 1)
-    #const int32_t n_out = out_key.params.n;
-
-    err::Float64 = 0
-
-    # chose a random vector of gaussian noises
-    noise = Array{Float64, 1}(sizeks)
-    for i in 0:(sizeks-1)
-        noise[i+1] = rand_gaussian_float(rng, alpha)
-        err += noise[i+1]
-    end
-    # recenter the noises
-    err = err / sizeks
-    for i in 0:(sizeks-1)
-        noise[i+1] -= err
-    end
-
-    # generate the ks
-    index :: Int32 = 0
-    for i in 0:(n-1)
-        for j in 0:(t-1)
-
-            # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
-            lweNoiselessTrivial(result.ks[0+1,j+1,i+1], Torus32(0), out_key.params)
-            for h in 1:(base-1) # pas le terme en 0
-                mess::Torus32 = (in_key.key[i+1] * Int32(h)) * Int32(1 << (32 - (j + 1) * basebit))
-                lweSymEncryptWithExternalNoise(
-                    rng, result.ks[h+1,j+1,i+1], mess, noise[index+1], alpha, out_key)
-                index += 1
             end
         end
     end
