@@ -86,20 +86,6 @@ function tLweExtractLweSample(result::LweSample, x::TLweSample, params::LweParam
 end
 
 
-# extractions Ring Lwe . Lwe
-function tLweExtractKey(result::LweKey, key::TLweKey) # sans doute un param supplémentaire
-    N = key.params.N
-    k = key.params.k
-    @assert result.params.n == k*N
-
-    for i in 0:(k-1)
-        for j in 0:(N-1)
-            result.key[i*N+j+1] = key.key[i+1].coefs[j+1]
-        end
-    end
-end
-
-
 # TLwe
 function tLweKeyGen(rng::AbstractRNG, result::TLweKey)
     N = result.params.N

@@ -53,8 +53,7 @@ tfhe_parameters(key::TFHECloudKey) = key.params
 function tfhe_key_pair(rng::AbstractRNG)
     params = TFHEParameters()
 
-    lwe_key = LweKey(params.in_out_params)
-    lweKeyGen(rng, lwe_key)
+    lwe_key = LweKey(rng, params.in_out_params)
     tgsw_key = TGswKey(params.tgsw_params)
     tGswKeyGen(rng, tgsw_key)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)

@@ -6,10 +6,29 @@ end
 
 
 struct LweKey
-   params :: LweParams
-   key :: Array{Int32, 1}
+    params :: LweParams
+    key :: Array{Int32, 1}
 
-   LweKey(params::LweParams) = new(params, Array{Int32, 1}(params.n))
+    function LweKey(rng::AbstractRNG, params::LweParams)
+        new(params, rand_uniform_int32(rng, Int(params.n))) # TODO: remove Int()
+    end
+
+    # extractions Ring Lwe . Lwe
+    function LweKey(params::LweParams, tlwe_key) # sans doute un param supplémentaire
+        @assert isa(tlwe_key, TLweKey) # (can't do it in the signature because it's declared later)
+        N = tlwe_key.params.N
+        k = tlwe_key.params.k
+        @assert params.n == k*N
+
+        key = Array{Int32, 1}(params.n)
+        for i in 0:(k-1)
+            for j in 0:(N-1)
+                key[i*N+j+1] = tlwe_key.key[i+1].coefs[j+1]
+            end
+        end
+
+        new(params, key)
+    end
 end
 
 
@@ -159,15 +178,6 @@ function lweSubMulTo(result::LweSample, p::Int32, sample::LweSample, params::Lwe
     result.b -= p*sample.b
     result.current_variance += (p*p)*sample.current_variance
 end
-
-
-function lweKeyGen(rng::AbstractRNG, result::LweKey)
-    n = result.params.n
-    for i in 0:(n-1)
-        result.key[i+1] = rand_uniform_int32(rng)
-    end
-end
-
 
 
 struct LweKeySwitchKey

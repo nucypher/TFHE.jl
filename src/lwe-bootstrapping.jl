@@ -80,8 +80,7 @@ function tfhe_createLweBootstrappingKey(
 
     #LweKeySwitchKey* ks; #/< the keyswitch key (s'.s)
     accum_key = rgsw_key.tlwe_key
-    extracted_key = LweKey(extract_params)
-    tLweExtractKey(extracted_key, accum_key)
+    extracted_key = LweKey(extract_params, accum_key)
 
     lweCreateKeySwitchKey(rng, bk.ks, extracted_key, key_in)
 

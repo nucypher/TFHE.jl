@@ -1,8 +1,8 @@
 const Torus32 = Int32
 
 
-function rand_uniform_int32(rng::AbstractRNG)
-    rand(rng, Int32(0):Int32(1))
+function rand_uniform_int32(rng::AbstractRNG, dims...)
+    rand(rng, Int32(0):Int32(1), dims...)
 end
 
 
