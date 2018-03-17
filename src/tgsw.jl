@@ -45,7 +45,6 @@ end
 struct TGswKey
     params :: TGswParams # the parameters
     tlwe_params :: TLweParams # the tlwe params of each rows
-    key :: Array{IntPolynomial, 1} # the key (array of k polynomials)
     tlwe_key :: TLweKey
 
     function TGswKey(rng::AbstractRNG, params::TGswParams)
@@ -53,7 +52,6 @@ struct TGswKey
         new(
             params,
             params.tlwe_params,
-            tlwe_key.key,
             tlwe_key
             )
     end
