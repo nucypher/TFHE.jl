@@ -1,9 +1,3 @@
-#=
-numeric_functions.h
-numeric_functions.cpp
-=#
-
-
 const Torus32 = Int32
 
 

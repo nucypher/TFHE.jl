@@ -1,12 +1,3 @@
-#=
-tlwe.h
-tlwe_functions.h
-lwe.cpp
-tlwe-fft-operations.cpp
-tlwe-functions.cpp
-tlwe.cpp
-=#
-
 struct TLweParams
     N :: Int32 # a power of 2: degree of the polynomials
     k :: Int32 # number of polynomials in the mask

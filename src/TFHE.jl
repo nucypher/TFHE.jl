@@ -1,18 +1,5 @@
 module TFHE
 
-#=
-tfhe_core.h
-tfhe_garbage_collector.h
-tfhe_generic_streams.h
-tfhe_generic_templates.h
-tfhe_io.h
-
-tfhe.h
-tfhe_garbage_collector.cpp
-tfhe_generic_streams.cpp
-tfhe_io.cpp
-=#
-
 include("numeric-functions.jl")
 export tfhe_random_generator_setSeed
 

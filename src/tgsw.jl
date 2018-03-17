@@ -1,11 +1,3 @@
-#=
-tgsw.h
-tgsw_functions.h
-tgsw-fft-operations.cpp
-tgsw-functions.cpp
-tgsw.cpp
-=#
-
 struct TGswParams
     l :: Int32 # decomp length
     Bgbit :: Int32 # log_2(Bg)

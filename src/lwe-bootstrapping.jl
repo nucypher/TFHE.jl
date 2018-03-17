@@ -1,10 +1,3 @@
-#=
-lwebootstrappingkey.h
-lwebootstrappingkey.cpp
-lwe-bootstrapping-functions-fft.cpp
-lwe-bootstrapping-functions.cpp
-=#
-
 struct LweBootstrappingKey
     in_out_params :: LweParams # paramètre de l'input et de l'output. key: s
     bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
