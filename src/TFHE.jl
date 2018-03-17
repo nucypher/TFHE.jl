@@ -1,7 +1,6 @@
 module TFHE
 
 include("numeric-functions.jl")
-export tfhe_random_generator_setSeed
 
 include("polynomials.jl")
 
