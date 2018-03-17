@@ -54,8 +54,7 @@ function tfhe_key_pair(rng::AbstractRNG)
     params = TFHEParameters()
 
     lwe_key = LweKey(rng, params.in_out_params)
-    tgsw_key = TGswKey(params.tgsw_params)
-    tGswKeyGen(rng, tgsw_key)
+    tgsw_key = TGswKey(rng, params.tgsw_params)
     secret_key = TFHESecretKey(params, lwe_key, tgsw_key)
 
     bk = LweBootstrappingKey(

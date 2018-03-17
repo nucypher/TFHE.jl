@@ -19,6 +19,24 @@ struct TLweKey
 end
 
 
+struct TLweKey
+    params :: TLweParams # the parameters of the key
+    key :: Array{IntPolynomial, 1} # the key (i.e k binary polynomials)
+
+    function TLweKey(rng::AbstractRNG, params::TLweParams)
+        N = params.N
+        k = params.k
+        key = [IntPolynomial(N) for i in 1:k]
+        for i in 0:(k-1)
+            for j in 0:(N-1)
+                key[i+1].coefs[j+1] = rand_uniform_int32(rng)
+            end
+        end
+        new(params, key)
+    end
+end
+
+
 mutable struct TLweSample
     a :: Array{TorusPolynomial, 1} # array of length k+1: mask + right term
     #b :: TorusPolynomial # alias of a[k] to get the right term
@@ -83,18 +101,6 @@ end
 
 function tLweExtractLweSample(result::LweSample, x::TLweSample, params::LweParams, rparams::TLweParams)
     tLweExtractLweSampleIndex(result, x, Int32(0), params, rparams)
-end
-
-
-# TLwe
-function tLweKeyGen(rng::AbstractRNG, result::TLweKey)
-    N = result.params.N
-    k = result.params.k
-    for i in 0:(k-1)
-        for j in 0:(N-1)
-            result.key[i+1].coefs[j+1] = rand_uniform_int32(rng)
-        end
-    end
 end
 
 

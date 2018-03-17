@@ -48,8 +48,8 @@ struct TGswKey
     key :: Array{IntPolynomial, 1} # the key (array of k polynomials)
     tlwe_key :: TLweKey
 
-    function TGswKey(params::TGswParams)
-        tlwe_key = TLweKey(params.tlwe_params)
+    function TGswKey(rng::AbstractRNG, params::TGswParams)
+        tlwe_key = TLweKey(rng, params.tlwe_params)
         new(
             params,
             params.tlwe_params,
@@ -58,14 +58,6 @@ struct TGswKey
             )
     end
 end
-
-
-# TGsw
-# generate a tgsw key (in fact, a tlwe key)
-function tGswKeyGen(rng::AbstractRNG, result::TGswKey)
-    tLweKeyGen(rng, result.tlwe_key)
-end
-
 
 
 struct TGswSample
