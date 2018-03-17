@@ -41,7 +41,6 @@ end
 
 struct TFHECloudKey
     params :: TFHEParameters
-    bk :: LweBootstrappingKey
     bkFFT :: LweBootstrappingKeyFFT
 end
 
@@ -62,7 +61,7 @@ function tfhe_key_pair(rng::AbstractRNG)
     tfhe_createLweBootstrappingKey(rng, bk, lwe_key, tgsw_key)
     bkFFT = LweBootstrappingKeyFFT(bk)
 
-    cloud_key = TFHECloudKey(params, bk, bkFFT)
+    cloud_key = TFHECloudKey(params, bkFFT)
     secret_key, cloud_key
 end
 
