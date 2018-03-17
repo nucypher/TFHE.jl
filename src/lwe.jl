@@ -37,6 +37,8 @@ mutable struct LweSample
     LweSample(params::LweParams) = new(Array{Torus32, 1}(params.n), 0, 0.)
 end
 
+const TFHEEncryptedBit = LweSample
+
 
 
 #=
