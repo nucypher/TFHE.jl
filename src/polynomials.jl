@@ -1,274 +1,215 @@
-const Torus32 = Int32
-
-
 # This structure represents an integer polynomial modulo X^N+1
-mutable struct IntPolynomial
-    N :: Int32
-    coefs :: Array{Int32, 1}
-    IntPolynomial(N::Int32) = new(N, Array{Int32, 1}(N))
-end
+struct IntPolynomialArray
+    coefs :: AbstractArray # Array{Int32}
 
-function new_IntPolynomial_array(nbelts::Int32, N::Int32)
-    [IntPolynomial(N) for i in 1:nbelts]
+    IntPolynomialArray(N::Int, dims...) = new(Array{Int32}(N, dims...))
+    IntPolynomialArray(arr::AbstractArray) = new(arr)
 end
 
 
 # This structure represents an torus polynomial modulo X^N+1
-mutable struct TorusPolynomial
-    N :: Int32
-    coefsT :: Array{Torus32, 1}
-    TorusPolynomial(N::Int32) = new(N, Array{Torus32, 1}(N))
+struct TorusPolynomialArray
+    coefsT :: AbstractArray # Array{Torus32}
+
+    TorusPolynomialArray(N::Int, dims...) = new(Array{Torus32}(N, dims...))
+    TorusPolynomialArray(arr::AbstractArray) = new(arr)
 end
 
 
-function new_TorusPolynomial_array(nbelts::Int, N::Int32)
-    [TorusPolynomial(N) for i in 1:nbelts]
+# This structure is used for FFT operations, and is a representation
+# over C of a polynomial in R[X]/X^N+1
+struct LagrangeHalfCPolynomialArray
+    coefsC :: AbstractArray # Array{Complex{Float64}}
+
+    function LagrangeHalfCPolynomialArray(N::Int, dims...)
+        @assert mod(N, 2) == 0
+        new(Array{Complex{Float64}, 2}(div(N, 2), dims...))
+    end
+
+    LagrangeHalfCPolynomialArray(arr::AbstractArray) = new(arr)
 end
 
 
-# J: Used as a mock for the FFT processor; will be removed during cleanup
-struct FFTProc
-    N :: Int32
-    Ns2 :: Int32
-    _2N :: Int32
-    omegaxminus1 :: Array{Complex{Float64}, 1}
+flat_coefs(arr::IntPolynomialArray) = reshape(arr.coefs, size(arr.coefs, 1), length(arr))
+flat_coefs(arr::TorusPolynomialArray) = reshape(arr.coefsT, size(arr.coefsT, 1), length(arr))
+flat_coefs(arr::LagrangeHalfCPolynomialArray) = reshape(arr.coefsC, size(arr.coefsC, 1), length(arr))
 
-    FFTProc(N::Int32) = new(N, N / 2, N * 2, [exp(im * x * pi / N) for x in 0:(N/2-1)])
+polynomial_size(arr::IntPolynomialArray) = size(arr.coefs, 1)
+polynomial_size(arr::TorusPolynomialArray) = size(arr.coefsT, 1)
+polynomial_size(arr::LagrangeHalfCPolynomialArray) = size(arr.coefsC, 1) * 2
+
+Base.size(arr::IntPolynomialArray) = size(arr.coefs)[2:end]
+Base.size(arr::TorusPolynomialArray) = size(arr.coefsT)[2:end]
+Base.size(arr::LagrangeHalfCPolynomialArray) = size(arr.coefsC)[2:end]
+
+Base.length(arr::IntPolynomialArray) = prod(size(arr))
+Base.length(arr::TorusPolynomialArray) = prod(size(arr))
+Base.length(arr::LagrangeHalfCPolynomialArray) = prod(size(arr))
+
+Base.reshape(arr::LagrangeHalfCPolynomialArray, dims...) =
+    LagrangeHalfCPolynomialArray(reshape(arr.coefsC, size(arr.coefsC, 1), dims...))
+
+Base.view(arr::IntPolynomialArray, ranges...) =
+    IntPolynomialArray(view(arr.coefs, 1:size(arr.coefs, 1), ranges...))
+Base.view(arr::TorusPolynomialArray, ranges...) =
+    TorusPolynomialArray(view(arr.coefsT, 1:size(arr.coefsT, 1), ranges...))
+Base.view(arr::LagrangeHalfCPolynomialArray, ranges...) =
+    LagrangeHalfCPolynomialArray(view(arr.coefsC, 1:size(arr.coefsC, 1), ranges...))
+
+
+function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
+    res = flat_coefs(result)
+    a = flat_coefs(p)
+    N = polynomial_size(p)
+
+    rev_in = Array{Float64, 2}(2 * N, length(p))
+    rev_in[1:N,:] .= a / 2
+    rev_in[N+1:end,:] .= -rev_in[1:N,:]
+
+    # TODO: use a preallocated array and plan_rfft()
+    rev_out = rfft(rev_in, 1)
+
+    res[1:div(N,2),:] .= rev_out[2:2:N+1,:]
 end
 
 
+function tp_ifft!(result::LagrangeHalfCPolynomialArray, p::TorusPolynomialArray)
+    res = flat_coefs(result)
+    a = flat_coefs(p)
+    N = polynomial_size(p)
 
-#=
- * This structure is used for FFT operations, and is a representation
- * over C of a polynomial in R[X]/X^N+1
- * This type is meant to be specialized, and all implementations of the structure must be compatible
- * (reinterpret_cast) with this one. Namely, they should contain at most 2 pointers
-=#
-mutable struct LagrangeHalfCPolynomial
-    coefsC :: Array{Complex{Float64}, 1}
-    proc :: FFTProc
+    rev_in = Array{Float64, 2}(2 * N, length(p))
+    rev_in[1:N,:] .= a[1:N,:] / 2^33
+    rev_in[(N+1):end,:] .= -rev_in[1:N,:]
 
-    function LagrangeHalfCPolynomial(N::Int32)
-        #@assert N == 1024
-        new(Array{Complex{Float64}, 1}(div(N, 2)), FFTProc(N))
-    end
+    # TODO: use a preallocated array and plan_rfft()
+    rev_out = rfft(rev_in, 1)
+
+    res[1:div(N,2),:] .= rev_out[2:2:N,:]
 end
 
 
-function IntPolynomial_ifft(result::LagrangeHalfCPolynomial, p::IntPolynomial)
-    res = result.coefsC
-    a = p.coefs
-    N = p.N
+function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
+    res = flat_coefs(result)
+    a = flat_coefs(p)
+    N = polynomial_size(p)
 
-    rev_in = Array{Float64, 1}(2*N)
-    for i in 1:N
-        rev_in[i] = a[i]/2.
-        rev_in[N + i] = -rev_in[i]
-    end
+    fw_in = Array{Complex{Float64}, 2}(N + 1, length(p))
+    fw_in[1:2:N+1,:] .= 0
+    fw_in[2:2:N+1,:] .= a[:,:]
 
-    rev_out = rfft(rev_in)
+    # TODO: use a preallocated array and plan_irfft()
+    fw_out = irfft(fw_in, 2 * N, 1) * (2 * N)
 
-    for i in 0:(div(N, 2)-1)
-        res[i+1] = rev_out[2*i+1+1]
-        @assert abs(rev_out[2*i+1]) < 1e-20
-    end
+    # TODO: move to numeric-functions.jl (need to figure out how to preserve the broadcasting)
+    # TODO: a view() is necessary here
+    res .= trunc.(Torus32, round.(Int64, fw_out[1:N,:] * (2^32 / N)) .<< 32 .>> 32)
 end
 
 
-function TorusPolynomial_ifft(result::LagrangeHalfCPolynomial, p::TorusPolynomial)
-    res = result.coefsC
-    a = p.coefsT
-    N = p.N
+function tp_add_mul!(
+        result::TorusPolynomialArray, poly1::IntPolynomialArray, poly2::TorusPolynomialArray)
 
-    _2pm33::Float64 = 1. / Float64(Int64(1)<<33)
+    N = polynomial_size(result)
+    tmp = [LagrangeHalfCPolynomialArray(N, size(result)...) for i in 1:3]
+    tmpr = TorusPolynomialArray(N, size(result)...)
 
-
-    rev_in = Array{Float64, 1}(2*N)
-    for i in 1:N
-        rev_in[i] = a[i] * _2pm33
-        rev_in[N + i] = -rev_in[i]
-    end
-    rev_out = rfft(rev_in)
-
-    for i in 0:(div(N, 2) - 1)
-        res[i+1] = rev_out[2*i+1+1]
-        @assert abs(rev_out[2*i+1]) < 1e-20
-    end
+    ip_ifft!(tmp[1], poly1)
+    tp_ifft!(tmp[2], poly2)
+    lp_mul!(tmp[3], tmp[1], tmp[2])
+    tp_fft!(tmpr, tmp[3])
+    tp_add_to!(result, tmpr)
 end
-
-
-function TorusPolynomial_fft(result::TorusPolynomial, p::LagrangeHalfCPolynomial)
-    res = result.coefsT
-    a = p.coefsC
-    N = result.N
-
-    _2p32::Float64 = Float64(Int64(1) << 32)
-    _1sN::Float64 = 1. / N
-
-    fw_in = Array{Complex{Float64}, 1}(N+1)
-    for i in 0:(div(N, 2))
-        fw_in[2*i+1] = 0
-    end
-    for i in 0:(div(N, 2)-1)
-        fw_in[2*i+1+1] = a[i+1] # conj
-    end
-
-    fw_out = irfft(fw_in, 2 * N) * (2 * N)
-
-    for i in 0:(N-1)
-        # pas besoin du fmod... Torus32(int64_t(fmod(rev_out[i]*_1sN,1.)*_2p32));
-        res[i+1] = trunc(Torus32, round(Int64, fw_out[i+1] * _1sN * _2p32) << 32 >> 32)
-    end
-
-    for i in 0:(N-1)
-        @assert abs(fw_out[N+i+1] + fw_out[i+1]) < 1e-20
-    end
-end
-
-
-function torusPolynomialAddMulRFFT(result::TorusPolynomial, poly1::IntPolynomial, poly2::TorusPolynomial)
-    N = poly1.N
-    tmp = [LagrangeHalfCPolynomial(N) for i in 1:3]
-    tmpr = TorusPolynomial(N)
-    IntPolynomial_ifft(tmp[1], poly1)
-    TorusPolynomial_ifft(tmp[2], poly2)
-    LagrangeHalfCPolynomialMul(tmp[3], tmp[1], tmp[2])
-    TorusPolynomial_fft(tmpr, tmp[3])
-    torusPolynomialAddTo(result, tmpr)
-end
-
-
-torusPolynomialAddMulR = torusPolynomialAddMulRFFT
 
 
 #MISC OPERATIONS
 
 # sets to zero
-function LagrangeHalfCPolynomialClear(reps::LagrangeHalfCPolynomial)
-    for i in 1:reps.proc.Ns2
-        reps.coefsC[i] = 0
-    end
+function lp_clear!(reps::LagrangeHalfCPolynomialArray)
+    reps.coefsC .= 0
 end
 
 
 # termwise multiplication in Lagrange space */
-function LagrangeHalfCPolynomialMul(
-        result::LagrangeHalfCPolynomial,
-        a::LagrangeHalfCPolynomial,
-        b::LagrangeHalfCPolynomial)
+function lp_mul!(
+        result::LagrangeHalfCPolynomialArray,
+        a::LagrangeHalfCPolynomialArray,
+        b::LagrangeHalfCPolynomialArray)
 
-    Ns2 = result.proc.Ns2
-    aa = a.coefsC
-    bb = b.coefsC
-    rr = result.coefsC
-    for i in 0:(Ns2-1)
-        rr[i+1] = aa[i+1]*bb[i+1]
-    end
+    result.coefsC .= a.coefsC .* b.coefsC
 end
 
 
 # termwise multiplication and addTo in Lagrange space
-function LagrangeHalfCPolynomialAddMul(
-        accum::LagrangeHalfCPolynomial,
-        a::LagrangeHalfCPolynomial,
-        b::LagrangeHalfCPolynomial)
+function lp_add_mul!(
+        accum::LagrangeHalfCPolynomialArray,
+        a::LagrangeHalfCPolynomialArray,
+        b::LagrangeHalfCPolynomialArray)
 
-    Ns2 = accum.proc.Ns2
-    aa = a.coefsC
-    bb = b.coefsC
-    rr = accum.coefsC
-    for i in 0:(Ns2-1)
-        rr[i+1] += aa[i+1]*bb[i+1]
-    end
+    accum.coefsC .+= a.coefsC .* b.coefsC
 end
 
 
 # Torus polynomial functions
 
 # TorusPolynomial = 0
-function torusPolynomialClear(result::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] = 0
-    end
+function tp_clear!(result::TorusPolynomialArray)
+    result.coefsT .= 0
 end
 
 # TorusPolynomial = random
-function torusPolynomialUniform(rng::AbstractRNG, result::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] = rand_uniform_torus32(rng)
-    end
+function tp_uniform!(rng::AbstractRNG, result::TorusPolynomialArray)
+    result.coefsT .= rand_uniform_torus32(rng, size(result.coefsT)...)
 end
 
 # TorusPolynomial = TorusPolynomial
-function torusPolynomialCopy(result::TorusPolynomial, sample::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] = sample.coefsT[i]
-    end
+function Base.copy!(result::TorusPolynomialArray, sample::TorusPolynomialArray)
+    result.coefsT .= sample.coefsT
 end
 
 # TorusPolynomial += TorusPolynomial
-function torusPolynomialAddTo(result::TorusPolynomial, poly2::TorusPolynomial)
-    for i in 1:result.N
-        result.coefsT[i] += poly2.coefsT[i]
-    end
+function tp_add_to!(result::TorusPolynomialArray, poly2::TorusPolynomialArray)
+    result.coefsT .+= poly2.coefsT
 end
 
 
 # result = (X^ai-1) * source
-function torusPolynomialMulByXaiMinusOne(
-        result::TorusPolynomial, ai::Int32, source::TorusPolynomial)
+function tp_mul_by_xai_minus_one!(
+        result::TorusPolynomialArray, ai::Int32, source::TorusPolynomialArray)
 
-    N = source.N
-    out = result.coefsT
-    in_ = source.coefsT
+    N = polynomial_size(result)
+    out = flat_coefs(result)
+    in_ = flat_coefs(source)
 
     @assert (ai >= 0 && ai < 2 * N)
 
     if ai < N
-        for i in 0:(ai-1) # sur que i-a<0
-            out[i + 1] = -in_[i - ai + N + 1] - in_[i + 1]
-        end
-
-        for i in ai:(N-1) # sur que N>i-a>=0
-            out[i + 1] = in_[i - ai + 1] - in_[i + 1]
-        end
+        out[1:ai,:] .= -in_[(N-ai+1):N,:] - in_[1:ai,:] # sur que i-a<0
+        out[(ai+1):N,:] .= in_[1:(N-ai),:] - in_[(ai+1):N,:] # sur que N>i-a>=0
     else
         aa = ai - N
-        for i in 0:(aa-1) # sur que i-a<0
-            out[i + 1] = in_[i - aa + N + 1] - in_[i + 1]
-        end
-        for i in aa:(N-1) # sur que N>i-a>=0
-            out[i + 1] = -in_[i - aa + 1] - in_[i + 1]
-        end
+        out[1:aa,:] .= in_[(N-aa+1):N,:] - in_[1:aa,:] # sur que i-a<0
+        out[(aa+1):N,:] .= -in_[1:(N-aa),:] - in_[(aa+1):N,:] # sur que N>i-a>=0
     end
 end
 
 
 # result= X^{a}*source
-function torusPolynomialMulByXai(
-        result::TorusPolynomial, a::Int32, source::TorusPolynomial)
+function tp_mul_by_xai!(
+        result::TorusPolynomialArray, a::Int32, source::TorusPolynomialArray)
 
-    N = source.N
-    out = result.coefsT
-    in_ = source.coefsT
+    N = polynomial_size(result)
+    out = flat_coefs(result)
+    in_ = flat_coefs(source)
 
     @assert (a >= 0 && a < 2 * N)
 
     if a < N
-        for i in 0:(a-1) # sur que i-a<0
-            out[i + 1] = -in_[i - a + N + 1]
-        end
-
-        for i in a:(N-1) # sur que N>i-a>=0
-            out[i + 1] = in_[i - a + 1]
-        end
+        out[1:a,:] .= -in_[(N-a+1):N,:] # sur que i-a<0
+        out[(a+1):N,:] .= in_[1:(N-a),:] # sur que N>i-a>=0
     else
         aa = a - N
-        for i in 0:(aa-1) # sur que i-a<0
-            out[i + 1] = in_[i - aa + N + 1]
-        end
-        for i in aa:(N-1) # sur que N>i-a>=0
-            out[i + 1] = -in_[i - aa + 1]
-        end
+        out[1:aa,:] .= in_[(N-aa+1):N,:] # sur que i-a<0
+        out[(aa+1):N,:] .= -in_[1:(N-aa),:] # sur que N>i-a>=0
     end
 end

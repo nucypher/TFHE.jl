@@ -121,7 +121,7 @@ end
  * @param bk_params The parameters of bk
 =#
 function tfhe_blindRotateAndExtract_FFT(result::LweSample,
-                                           v::TorusPolynomial,
+                                           v::TorusPolynomialArray,
                                            bk::Array{TGswSampleFFT, 1},
                                            barb::Int32,
                                            bara::Array{Int32, 1},
@@ -134,15 +134,15 @@ function tfhe_blindRotateAndExtract_FFT(result::LweSample,
     _2N = Int32(2) * N
 
     # Test polynomial
-    testvectbis = TorusPolynomial(N)
+    testvectbis = TorusPolynomialArray(Int(N)) # TODO: get rid of Int()
     # Accumulator
     acc = TLweSample(accum_params)
 
     # testvector = X^{2N-barb}*v
     if barb != 0
-        torusPolynomialMulByXai(testvectbis, _2N - barb, v)
+        tp_mul_by_xai!(testvectbis, _2N - barb, v)
     else
-        torusPolynomialCopy(testvectbis, v)
+        copy!(testvectbis, v)
     end
 
     tLweNoiselessTrivial(acc, testvectbis, accum_params)
@@ -174,7 +174,7 @@ function tfhe_bootstrap_woKS_FFT(result::LweSample,
     Nx2 = 2 * N
     n = in_params.n
 
-    testvect = TorusPolynomial(N)
+    testvect = TorusPolynomialArray(Int(N)) # TODO: get rid of Int()
     bara = Array{Int32, 1}(n)
 
     # Modulus switching
@@ -184,9 +184,8 @@ function tfhe_bootstrap_woKS_FFT(result::LweSample,
     end
 
     # the initial testvec = [mu,mu,mu,...,mu]
-    for i in 0:(N-1)
-        testvect.coefsT[i+1] = mu
-    end
+    # TODO: use an appropriate method
+    testvect.coefsT[:] = mu
 
     # Bootstrapping rotation and extraction
     tfhe_blindRotateAndExtract_FFT(result, testvect, bk.bkFFT, barb, bara, n, bk_params)

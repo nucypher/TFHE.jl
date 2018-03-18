@@ -21,11 +21,7 @@ struct LweKey
         @assert params.n == k*N
 
         key = Array{Int32, 1}(params.n)
-        for i in 0:(k-1)
-            for j in 0:(N-1)
-                key[i*N+j+1] = tlwe_key.key[i+1].coefs[j+1]
-            end
-        end
+        key .= tlwe_key.key.coefs[:] # TODO: use an approprtiate method
 
         new(params, key)
     end

@@ -6,21 +6,24 @@ function rand_uniform_int32(rng::AbstractRNG, dims...)
 end
 
 
-function rand_uniform_torus32(rng::AbstractRNG)
-    rand(rng, Torus32)
+function rand_uniform_torus32(rng::AbstractRNG, dims...)
+    # TODO: if dims == () (it happens), the return value is not an array -> type instability
+    #       also, there's probably instability for arrays of different dims too.
+    #       Naturally, it applies for all other rand_ functions.
+    rand(rng, Torus32, dims...)
 end
 
 
-function rand_gaussian_float(rng::AbstractRNG, sigma::Float64)
-    randn(rng) * sigma
+function rand_gaussian_float(rng::AbstractRNG, sigma::Float64, dims...)
+    randn(rng, dims...) * sigma
 end
 
 
 # Gaussian sample centered in message, with standard deviation sigma
-function rand_gaussian_torus32(rng::AbstractRNG, message::Torus32, sigma::Float64)
+function rand_gaussian_torus32(rng::AbstractRNG, message::Torus32, sigma::Float64, dims...)
     # Attention: all the implementation will use the stdev instead of the gaussian fourier param
-    err = randn(rng) * sigma
-    message + dtot32(err)
+    err = randn(rng, dims...) * sigma
+    message + dtot32.(err)
 end
 
 
@@ -51,8 +54,8 @@ end
 
 
 # from double to Torus32
-function dtot32(d::Float64)
-    trunc(Int32, (d - trunc(d)) * 2^32)
+function dtot32(d)
+    trunc.(Int32, (d - trunc.(d)) * 2^32)
 end
 
 

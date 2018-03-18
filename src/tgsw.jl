@@ -112,7 +112,8 @@ function tGswAddMuIntH(result::TGswSample, message::Int32, params::TGswParams)
     # compute result += H
     for bloc in 0:k
         for i in 0:(l-1)
-            result.bloc_sample[i+1, bloc+1].a[bloc+1].coefsT[0+1] += message * h[i+1]
+            # TODO: use an appropriate method
+            result.bloc_sample[i+1, bloc+1].a.coefsT[1, bloc+1] .+= message * h[i+1]
         end
     end
 end
@@ -136,38 +137,32 @@ function tGswSymEncryptInt(rng::AbstractRNG, result::TGswSample, message::Int32,
 end
 
 
-function tGswTorus32PolynomialDecompH(sample::TorusPolynomial, params::TGswParams)
+function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGswParams)
 
     N = params.tlwe_params.N
     l = params.l
     Bgbit = params.Bgbit
-    buf = sample.coefsT
+    buf = flat_coefs(sample)
 
     maskMod = params.maskMod
     halfBg = params.halfBg
-    offset = params.offset
+    offset::Int32 = signed(params.offset)
 
-    result = [IntPolynomial(N) for i in 1:l]
+    result = IntPolynomialArray(Int(N), Int(l)) # TODO: get rid of Int()
+    res_coefs = flat_coefs(result)
 
     # First, add offset to everyone
-    for j in 0:(N-1)
-        buf[j+1] += signed(offset)
-    end
+    buf += offset
 
     # then, do the decomposition (in parallel)
-    for p in 0:(l-1)
-        decal::Int32 = (32 - (p + 1) * Bgbit)
-        res_p = result[p+1].coefs
-        for j in 0:(N-1)
-            temp1::UInt32 = (buf[j+1] >> decal) & maskMod
-            res_p[j+1] = temp1 - halfBg
-        end
+    # TODO: vectorize further
+    for p in 1:l
+        decal::Int32 = (32 - p * Bgbit)
+        res_coefs[:,p] .= (buf[:,1] .>> decal) .& maskMod - halfBg
     end
 
     # finally, remove offset to everyone
-    for j in 0:(N-1)
-        buf[j+1] -= signed(offset)
-    end
+    buf -= offset
 
     result
 end
@@ -193,22 +188,22 @@ function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::T
     N = tlwe_params.N
 
     # TODO attention, improve these new/delete...
-    deca = new_IntPolynomial_array(kpl, N) # decomposed accumulator
-    decaFFT = [LagrangeHalfCPolynomial(N) for i in 1:kpl] # fft version
+    deca = IntPolynomialArray(Int(N), Int(kpl)) # decomposed accumulator # TODO: get rid of Int()
+    decaFFT = LagrangeHalfCPolynomialArray(Int(N), Int(kpl)) # fft version # TODO: get rid of Int()
     tmpa = TLweSampleFFT(tlwe_params)
 
+    deca_coefs = flat_coefs(deca)
+
     for i in 0:k
-        deca[i * l + 1:(i+1)*l] = tGswTorus32PolynomialDecompH(accum.a[i+1], params)
+        deca_coefs[:,i * l + 1:(i+1)*l] .= flat_coefs(tGswTorus32PolynomialDecompH(view(accum.a, (i+1):(i+1)), params))
     end
 
-    for p in 0:(kpl-1)
-        IntPolynomial_ifft(decaFFT[p+1], deca[p+1])
-    end
+    ip_ifft!(decaFFT, deca)
 
     tLweFFTClear(tmpa, tlwe_params)
 
     for p in 0:(kpl-1)
-        tLweFFTAddMulRTo(tmpa, decaFFT[p+1], gsw.all_samples[p+1], tlwe_params)
+        tLweFFTAddMulRTo(tmpa, view(decaFFT, (p+1):(p+1)), gsw.all_samples[p+1], tlwe_params)
     end
 
     tLweFromFFTConvert(accum, tmpa, tlwe_params)
