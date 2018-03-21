@@ -104,8 +104,8 @@ function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
     # TODO: move to numeric-functions.jl (need to figure out how to preserve the broadcasting)
     # TODO: a view() is necessary here
 
-    # !!! check that this works correctly
-    res .= signed.(trunc.(UInt32, unsigned.(round.(Int64, fw_out[1:N,:] * (2^32 / N))) .<< 32 .>> 32))
+    coeff = 2^32 / N
+    res .= to_int32.(fw_out[1:N, :] .* coeff)
 end
 
 

@@ -60,3 +60,8 @@ function dtot32(d)
 end
 
 
+# !!! check that this works correctly
+function to_int32(x::Float64)
+    signed(trunc(UInt32, unsigned(round(Int64, x)) << 32 >> 32))
+end
+
