@@ -182,9 +182,9 @@ function tGswFFTExternMulToTLwe(accum::TLweSampleArray, gsw::TGswSampleFFTArray,
     for i in 1:(k+1)
         for j in 1:l
             tLweFFTAddMulRTo(
-                tmpa,
-                view(decaFFT, i, j:j, 1:size(accum)[1]),
-                view(gsw.samples, i, j),
+                tmpa, # N/2 x k+1 x message_len
+                reshape(view(decaFFT, j, i, 1:size(accum)[1]), 1, size(accum)[1]), # N/2 x message_len
+                view(gsw.samples, j, i), # N/2 x k+1
                 tlwe_params)
         end
     end
