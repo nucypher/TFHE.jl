@@ -74,13 +74,8 @@ function lweSymEncrypt(
 
     n = key.params.n
 
-    # !!! to preserve the RNG call order for testing
-    for i in 1:size(result.b, 1)
-        result.b[i] = rand_gaussian_torus32(rng, messages[i], alpha)
-        result.a[:,i] .= rand_uniform_torus32(rng, n)
-    end
-    #result.b .= rand_gaussian_torus32(rng, Int32(0), alpha, size(messages)...) + messages
-    #result.a .= rand_uniform_torus32(rng, n, size(messages)...)
+    result.b .= rand_gaussian_torus32(rng, Int32(0), alpha, size(messages)...) + messages
+    result.a .= rand_uniform_torus32(rng, n, size(messages)...)
 
     # TODO: use matrix multiplication?
     result.b .+= sum_int32(result.a .* key.key, 1)
