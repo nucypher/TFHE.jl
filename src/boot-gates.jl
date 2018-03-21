@@ -9,12 +9,12 @@
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_NAND!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
@@ -34,12 +34,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_OR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,1/8) + ca + cb
     OrConst = modSwitchToTorus32(1, 8)
@@ -59,12 +59,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_AND!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,-1/8) + ca + cb
     AndConst = modSwitchToTorus32(-1, 8)
@@ -84,12 +84,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_XOR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,1/4) + 2*(ca + cb)
     XorConst = modSwitchToTorus32(1, 4)
@@ -109,12 +109,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_XNOR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,-1/4) + 2*(-ca-cb)
     XnorConst = modSwitchToTorus32(-1, 4)
@@ -133,7 +133,7 @@ end
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_NOT!(bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit)
+function tfhe_gate_NOT!(bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray)
     in_out_params = bk.params.in_out_params
     lweNegate(result, ca, in_out_params)
 end
@@ -144,7 +144,7 @@ end
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_COPY!(bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit)
+function tfhe_gate_COPY!(bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray)
     in_out_params = bk.params.in_out_params
     lweCopy(result, ca, in_out_params)
 end
@@ -154,10 +154,10 @@ end
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_CONSTANT!(bk::TFHECloudKey, result::TFHEEncryptedBit, value::Int32)
+function tfhe_gate_CONSTANT!(bk::TFHECloudKey, result::LweSampleArray, vals::BitArray)
     in_out_params = bk.params.in_out_params
     MU = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(result, value != 0 ? MU : -MU, in_out_params)
+    lweNoiselessTrivial(result, map(x -> x ? MU : -MU, vals), in_out_params)
 end
 
 
@@ -167,12 +167,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_NOR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,-1/8) - ca - cb
     NorConst = modSwitchToTorus32(-1, 8)
@@ -192,12 +192,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ANDNY!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,-1/8) - ca + cb
     AndNYConst = modSwitchToTorus32(-1, 8)
@@ -217,12 +217,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ANDYN!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,-1/8) + ca - cb
     AndYNConst = modSwitchToTorus32(-1, 8)
@@ -242,12 +242,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ORNY!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,1/8) - ca + cb
     OrNYConst = modSwitchToTorus32(1, 8)
@@ -267,12 +267,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ORYN!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray, ca::LweSampleArray, cb::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
+    temp_result = LweSampleArray(in_out_params, size(result)...)
 
     #compute: (0,1/8) + ca - cb
     OrYNConst = modSwitchToTorus32(1, 8)
@@ -292,18 +292,17 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_MUX!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit,
-        a::TFHEEncryptedBit, b::TFHEEncryptedBit, c::TFHEEncryptedBit)
+        bk::TFHECloudKey, result::LweSampleArray,
+        a::LweSampleArray, b::LweSampleArray, c::LweSampleArray)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
     extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-    temp_result1 = TFHEEncryptedBit(extracted_params)
-    u1 = TFHEEncryptedBit(extracted_params)
-    u2 = TFHEEncryptedBit(extracted_params)
-
+    temp_result = LweSampleArray(in_out_params, size(result)...)
+    temp_result1 = LweSampleArray(extracted_params, size(result)...)
+    u1 = LweSampleArray(extracted_params, size(result)...)
+    u2 = LweSampleArray(extracted_params, size(result)...)
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = modSwitchToTorus32(-1, 8)
@@ -312,7 +311,6 @@ function tfhe_gate_MUX!(
     lweAddTo(temp_result, b, in_out_params)
     # Bootstrap without KeySwitch
     tfhe_bootstrap_woKS_FFT(u1, bk.bkFFT, MU, temp_result)
-
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
     lweNoiselessTrivial(temp_result, AndConst, in_out_params)
@@ -326,6 +324,7 @@ function tfhe_gate_MUX!(
     lweNoiselessTrivial(temp_result1, MuxConst, extracted_params)
     lweAddTo(temp_result1, u1, extracted_params)
     lweAddTo(temp_result1, u2, extracted_params)
+
     # Key switching
     lweKeySwitch(result, bk.bkFFT.ks, temp_result1)
 end

@@ -23,7 +23,7 @@ struct LagrangeHalfCPolynomialArray
 
     function LagrangeHalfCPolynomialArray(N::Int, dims...)
         @assert mod(N, 2) == 0
-        new(Array{Complex{Float64}, 2}(div(N, 2), dims...))
+        new(Array{Complex{Float64}}(div(N, 2), dims...))
     end
 
     LagrangeHalfCPolynomialArray(arr::AbstractArray) = new(arr)
@@ -103,7 +103,9 @@ function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
 
     # TODO: move to numeric-functions.jl (need to figure out how to preserve the broadcasting)
     # TODO: a view() is necessary here
-    res .= trunc.(Torus32, round.(Int64, fw_out[1:N,:] * (2^32 / N)) .<< 32 .>> 32)
+
+    # !!! check that this works correctly
+    res .= signed.(trunc.(UInt32, unsigned.(round.(Int64, fw_out[1:N,:] * (2^32 / N))) .<< 32 .>> 32))
 end
 
 
@@ -162,11 +164,6 @@ function tp_uniform!(rng::AbstractRNG, result::TorusPolynomialArray)
     result.coefsT .= rand_uniform_torus32(rng, size(result.coefsT)...)
 end
 
-# TorusPolynomial = TorusPolynomial
-function Base.copy!(result::TorusPolynomialArray, sample::TorusPolynomialArray)
-    result.coefsT .= sample.coefsT
-end
-
 # TorusPolynomial += TorusPolynomial
 function tp_add_to!(result::TorusPolynomialArray, poly2::TorusPolynomialArray)
     result.coefsT .+= poly2.coefsT
@@ -175,41 +172,51 @@ end
 
 # result = (X^ai-1) * source
 function tp_mul_by_xai_minus_one!(
-        result::TorusPolynomialArray, ai::Int32, source::TorusPolynomialArray)
+        result::TorusPolynomialArray, ais::Array{Int32}, source::TorusPolynomialArray)
 
     N = polynomial_size(result)
-    out = flat_coefs(result)
-    in_ = flat_coefs(source)
+    out = result.coefsT
+    in_ = source.coefsT
 
-    @assert (ai >= 0 && ai < 2 * N)
+    # TODO: we may need a fully vectorized form of this
 
-    if ai < N
-        out[1:ai,:] .= -in_[(N-ai+1):N,:] - in_[1:ai,:] # sur que i-a<0
-        out[(ai+1):N,:] .= in_[1:(N-ai),:] - in_[(ai+1):N,:] # sur que N>i-a>=0
-    else
-        aa = ai - N
-        out[1:aa,:] .= in_[(N-aa+1):N,:] - in_[1:aa,:] # sur que i-a<0
-        out[(aa+1):N,:] .= -in_[1:(N-aa),:] - in_[(aa+1):N,:] # sur que N>i-a>=0
+    @assert (all(x >= 0 for x in ais) && all(x < 2 * N for x in ais))
+
+    for i in 1:length(ais)
+        ai = ais[i]
+        if ai < N
+            out[1:ai,:,i] .= -in_[(N-ai+1):N,:,i] - in_[1:ai,:,i] # sur que i-a<0
+            out[(ai+1):N,:,i] .= in_[1:(N-ai),:,i] - in_[(ai+1):N,:,i] # sur que N>i-a>=0
+        else
+            aa = ai - N
+            out[1:aa,:,i] .= in_[(N-aa+1):N,:,i] - in_[1:aa,:,i] # sur que i-a<0
+            out[(aa+1):N,:,i] .= -in_[1:(N-aa),:,i] - in_[(aa+1):N,:,i] # sur que N>i-a>=0
+        end
     end
 end
 
 
 # result= X^{a}*source
 function tp_mul_by_xai!(
-        result::TorusPolynomialArray, a::Int32, source::TorusPolynomialArray)
+        result::TorusPolynomialArray, ais::Array{Int32}, source::TorusPolynomialArray)
 
     N = polynomial_size(result)
-    out = flat_coefs(result)
-    in_ = flat_coefs(source)
+    out = result.coefsT
+    in_ = source.coefsT
 
-    @assert (a >= 0 && a < 2 * N)
+    # TODO: we may need a fully vectorized form of this
 
-    if a < N
-        out[1:a,:] .= -in_[(N-a+1):N,:] # sur que i-a<0
-        out[(a+1):N,:] .= in_[1:(N-a),:] # sur que N>i-a>=0
-    else
-        aa = a - N
-        out[1:aa,:] .= in_[(N-aa+1):N,:] # sur que i-a<0
-        out[(aa+1):N,:] .= -in_[1:(N-aa),:] # sur que N>i-a>=0
+    @assert (all(x >= 0 for x in ais) && all(x < 2 * N for x in ais))
+
+    for i in 1:length(ais)
+        a = ais[i]
+        if a < N
+            out[1:a,i] .= -in_[(N-a+1):N,i] # sur que i-a<0
+            out[(a+1):N,i] .= in_[1:(N-a),i] # sur que N>i-a>=0
+        else
+            aa = a - N
+            out[1:aa,i] .= in_[(N-aa+1):N,i] # sur que i-a<0
+            out[(aa+1):N,i] .= -in_[1:(N-aa),i] # sur que N>i-a>=0
+        end
     end
 end

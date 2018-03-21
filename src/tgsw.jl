@@ -11,21 +11,13 @@ struct TGswParams
 
     function TGswParams(l::Int32, Bgbit::Int32, tlwe_params::TLweParams)
 
-        h = Array{Torus32, 1}(l)
-        for i in 0:(l-1)
-            kk::Int32 = 32 - (i + 1) * Bgbit
-            h[i+1] = 1 << kk # 1/(Bg^(i+1)) as a Torus32
-        end
+        Bg = 1 << Bgbit
+        halfBg = div(Bg, 2)
+
+        h = Torus32(1) .<< (32 - (1:l) * Bgbit) # 1/(Bg^(i+1)) as a Torus32
 
         # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
-        temp1::UInt32 = 0
-        for i in 0:(l-1)
-            temp0::UInt32 = 1 << (32 - (i + 1) * Bgbit)
-            temp1 += temp0
-        end
-        Bg = 1 << Bgbit
-        halfBg = Bg / 2
-        offset = temp1 * halfBg
+        offset = sum(UInt32(1) .<< (32 - (1:l) * Bgbit)) * halfBg
 
         new(
             l,
@@ -58,82 +50,79 @@ struct TGswKey
 end
 
 
-struct TGswSample
-    all_sample :: Array{TLweSample, 1} # TLweSample* all_sample; (k+1)l TLwe Sample
-    bloc_sample :: Array{TLweSample, 2} # accès optionnel aux différents blocs de taille l.
-    # double current_variance;
+struct TGswSampleArray
+    samples :: TLweSampleArray # TLweSample* all_sample; (k+1)l TLwe Sample
     k :: Int32
     l :: Int32
 
-    # initialize the sample structure
-    # (equivalent of the C++ constructor)
-    function TGswSample(params::TGswParams)
+    function TGswSampleArray(params::TGswParams, dims...)
         k = params.tlwe_params.k
         l = params.l
-        # tous les samples comme un vecteur ligne
-        all_sample = new_TLweSample_array((k + 1) * l, params.tlwe_params)
-        # blocs horizontaux (l lignes) de la matrice TGsw
-        bloc_sample = reshape(all_sample, Int64(l), k + 1)
-        new(all_sample, bloc_sample, k, l)
+        samples = TLweSampleArray(params.tlwe_params, Int(l), Int(k) + 1, dims...)
+        new(samples, k, l)
     end
-
 end
 
 
-function new_TGswSample_array(nbelts::Int32, params::TGswParams)
-    [TGswSample(params) for i in 1:nbelts]
-end
-
-
-struct TGswSampleFFT
-    all_samples :: Array{TLweSampleFFT, 1} # TLweSample* all_sample; (k+1)l TLwe Sample
-    sample:: Array{TLweSampleFFT, 2} # accès optionnel aux différents blocs de taille l.
-    # double current_variance;
+struct TGswSampleFFTArray
+    samples :: TLweSampleFFTArray # TLweSample* all_sample; (k+1)l TLwe Sample
     k :: Int32
     l :: Int32
 
     # constructor content
-    function TGswSampleFFT(params::TGswParams)
+    function TGswSampleFFTArray(params::TGswParams, dims...)
         k = params.tlwe_params.k
         l = params.l
-        all_samples = [TLweSampleFFT(params.tlwe_params) for i in 1:((k + 1) * l)]
-        sample = reshape(all_samples, Int64(l), k + 1)
-        new(all_samples, sample, k, l)
+        samples = TLweSampleFFTArray(params.tlwe_params, Int(l), Int(k) + 1, dims...)
+        new(samples, k, l)
+    end
+
+    function TGswSampleFFTArray(samples, k, l)
+        new(samples, k, l)
     end
 end
 
 
+Base.view(arr::TGswSampleFFTArray, ranges...) = TGswSampleFFTArray(
+    view(arr.samples, 1:Int(arr.l), 1:Int(arr.k + 1), ranges...), arr.k, arr.l)
+Base.size(arr::TGswSampleFFTArray) = size(arr.samples)[3:end]
+
+
 # Result += mu*H, mu integer
-function tGswAddMuIntH(result::TGswSample, message::Int32, params::TGswParams)
+function tGswAddMuIntH(result::TGswSampleArray, messages::Array{Int32, 1}, params::TGswParams)
     k = params.tlwe_params.k
     l = params.l
     h = params.h
 
     # compute result += H
-    for bloc in 0:k
-        for i in 0:(l-1)
-            # TODO: use an appropriate method
-            result.bloc_sample[i+1, bloc+1].a.coefsT[1, bloc+1] .+= message * h[i+1]
-        end
+
+    # returns an underlying coefsT of TorusPolynomialArray, with the total size
+    # (N, k + 1 [from TLweSample], l, k + 1 [from TGswSample], n)
+    # messages: (n,)
+    # h: (l,)
+    # TODO: use an appropriate method
+    # TODO: not sure if it's possible to fully vectorize it
+    for bloc in 1:(k+1)
+        result.samples.a.coefsT[1, bloc, :, bloc, :] .+= (
+            reshape(messages, 1, length(messages))
+            .* reshape(h, Int(l), 1))
     end
 end
 
 
 # Result = tGsw(0)
-function tGswEncryptZero(rng::AbstractRNG, result::TGswSample, alpha::Float64, key::TGswKey)
+function tGswEncryptZero(rng::AbstractRNG, rng2, result::TGswSampleArray, alpha::Float64, key::TGswKey)
     rlkey = key.tlwe_key
-    kpl = key.params.kpl
-
-    for p in 0:(kpl-1)
-        tLweSymEncryptZero(rng, result.all_sample[p+1], alpha, rlkey)
-    end
+    tLweSymEncryptZero(rng, rng2, result.samples, alpha, rlkey)
 end
 
 
 # encrypts a constant message
-function tGswSymEncryptInt(rng::AbstractRNG, result::TGswSample, message::Int32, alpha::Float64, key::TGswKey)
-    tGswEncryptZero(rng, result, alpha, key)
-    tGswAddMuIntH(result, message, key.params)
+function tGswSymEncryptInt(
+        rng::AbstractRNG, rng2, result::TGswSampleArray, messages::Array{Int32, 1},
+        alpha::Float64, key::TGswKey)
+    tGswEncryptZero(rng, rng2, result, alpha, key)
+    tGswAddMuIntH(result, messages, key.params)
 end
 
 
@@ -141,28 +130,23 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGsw
 
     N = params.tlwe_params.N
     l = params.l
+    k = params.tlwe_params.k
     Bgbit = params.Bgbit
-    buf = flat_coefs(sample)
 
     maskMod = params.maskMod
     halfBg = params.halfBg
     offset::Int32 = signed(params.offset)
 
-    result = IntPolynomialArray(Int(N), Int(l)) # TODO: get rid of Int()
-    res_coefs = flat_coefs(result)
+    result = IntPolynomialArray(Int(N), Int(l), size(sample)...) # TODO: get rid of Int()
 
-    # First, add offset to everyone
-    buf += offset
-
-    # then, do the decomposition (in parallel)
+    # do the decomposition
     # TODO: vectorize further
-    for p in 1:l
-        decal::Int32 = (32 - p * Bgbit)
-        res_coefs[:,p] .= (buf[:,1] .>> decal) .& maskMod - halfBg
+    for q in 1:(k+1)
+        for p in 1:l
+            decal::Int32 = (32 - p * Bgbit)
+            result.coefs[:,p,q,:] .= ((sample.coefsT[:,q,:] + offset) .>> decal) .& maskMod - halfBg
+        end
     end
-
-    # finally, remove offset to everyone
-    buf -= offset
 
     result
 end
@@ -170,17 +154,13 @@ end
 
 # For all the kpl TLWE samples composing the TGSW sample
 # It computes the inverse FFT of the coefficients of the TLWE sample
-function tGswToFFTConvert(result::TGswSampleFFT, source::TGswSample, params::TGswParams)
-    kpl = params.kpl
-
-    for p in 0:(kpl-1)
-        tLweToFFTConvert(result.all_samples[p+1], source.all_sample[p+1], params.tlwe_params)
-    end
+function tGswToFFTConvert(result::TGswSampleFFTArray, source::TGswSampleArray, params::TGswParams)
+    tLweToFFTConvert(result.samples, source.samples, params.tlwe_params)
 end
 
 
 # External product (*): accum = gsw (*) accum
-function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::TGswParams)
+function tGswFFTExternMulToTLwe(accum::TLweSampleArray, gsw::TGswSampleFFTArray, params::TGswParams)
     tlwe_params = params.tlwe_params
     k = tlwe_params.k
     l = params.l
@@ -188,22 +168,24 @@ function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::T
     N = tlwe_params.N
 
     # TODO attention, improve these new/delete...
-    deca = IntPolynomialArray(Int(N), Int(kpl)) # decomposed accumulator # TODO: get rid of Int()
-    decaFFT = LagrangeHalfCPolynomialArray(Int(N), Int(kpl)) # fft version # TODO: get rid of Int()
-    tmpa = TLweSampleFFT(tlwe_params)
+    tmpa = TLweSampleFFTArray(tlwe_params, size(accum)...)
 
-    deca_coefs = flat_coefs(deca)
+    # shape: l, k + 1, size(accum)...
+    deca = tGswTorus32PolynomialDecompH(accum.a, params)
 
-    for i in 0:k
-        deca_coefs[:,i * l + 1:(i+1)*l] .= flat_coefs(tGswTorus32PolynomialDecompH(view(accum.a, (i+1):(i+1)), params))
-    end
-
+    decaFFT = LagrangeHalfCPolynomialArray(Int(N), Int(l), Int(k+1), size(accum)...) # fft version # TODO: get rid of Int()
     ip_ifft!(decaFFT, deca)
 
     tLweFFTClear(tmpa, tlwe_params)
 
-    for p in 0:(kpl-1)
-        tLweFFTAddMulRTo(tmpa, view(decaFFT, (p+1):(p+1)), gsw.all_samples[p+1], tlwe_params)
+    for i in 1:(k+1)
+        for j in 1:l
+            tLweFFTAddMulRTo(
+                tmpa,
+                view(decaFFT, i, j:j, 1:size(accum)[1]),
+                view(gsw.samples, i, j),
+                tlwe_params)
+        end
     end
 
     tLweFromFFTConvert(accum, tmpa, tlwe_params)

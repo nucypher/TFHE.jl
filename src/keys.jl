@@ -63,19 +63,23 @@ function tfhe_key_pair(rng::AbstractRNG)
 end
 
 
-# encrypts a boolean
-function tfhe_encrypt_bit!(rng::AbstractRNG, key::TFHESecretKey, result::TFHEEncryptedBit, message::Bool)
-    _1s8::Torus32 = modSwitchToTorus32(1, 8)
-    mu::Torus32 = message ? _1s8 : -_1s8
+function tfhe_encrypt(rng::AbstractRNG, key::TFHESecretKey, message::BitArray)
+    result = empty_ciphertext(key.params, length(message))
+    _1s8 = modSwitchToTorus32(1, 8)
+    mus = [bit ? _1s8 : -_1s8 for bit in message]
     alpha = key.params.in_out_params.alpha_min # TODO: specify noise
-    lweSymEncrypt(rng, result, mu, alpha, key.lwe_key)
+    lweSymEncrypt(rng, result, mus, alpha, key.lwe_key)
+    result
 end
 
 
-# decrypts a boolean
-function tfhe_decrypt_bit!(key::TFHESecretKey, sample::TFHEEncryptedBit)
-    mu = lwePhase(sample, key.lwe_key)
-    (mu > 0 ? Int32(1) : Int32(0))
+function tfhe_decrypt(key::TFHESecretKey, ciphertext::LweSampleArray)
+    mus = lwePhase(ciphertext, key.lwe_key)
+    BitArray([(mu > 0) for mu in mus])
 end
 
-TFHEEncryptedBit(params::TFHEParameters) = LweSample(params.in_out_params)
+
+function empty_ciphertext(params::TFHEParameters, dims...)
+    LweSampleArray(params.in_out_params, dims...)
+end
+

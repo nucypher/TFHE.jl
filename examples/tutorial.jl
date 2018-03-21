@@ -3,30 +3,37 @@ push!(LOAD_PATH, "../src")
 using TFHE
 
 
+function int_to_bitarray(x::Int16)
+    BitArray([((x >> i) & 1 != 0) for i in 0:15])
+end
+
+function bitarray_to_int(x::BitArray)
+    int_answer = Int16(0)
+    for i in 0:15
+        int_answer |= (x[i+1]<<i)
+    end
+    int_answer
+end
+
+
 function encrypt()
 
     rng = MersenneTwister(123)
     secret_key, cloud_key = tfhe_key_pair(rng)
-    params = tfhe_parameters(secret_key)
 
-    # generate encrypt the 16 bits of 2017
     plaintext1 = Int16(2017)
-    ciphertext1 = [TFHEEncryptedBit(params) for i in 1:16]
-    for i in 1:16
-        tfhe_encrypt_bit!(rng, secret_key, ciphertext1[i], ((plaintext1>>(i-1)) & 1) != 0)
-    end
+    bits1 = int_to_bitarray(plaintext1)
 
-    # generate encrypt the 16 bits of 42
     plaintext2 = Int16(42)
-    ciphertext2 = [TFHEEncryptedBit(params) for i in 1:16]
-    for i in 1:16
-        tfhe_encrypt_bit!(rng, secret_key, ciphertext2[i], ((plaintext2>>(i-1)) & 1) != 0)
-    end
+    bits2 = int_to_bitarray(plaintext2)
+
+    ciphertext1 = tfhe_encrypt(rng, secret_key, bits1)
+    ciphertext2 = tfhe_encrypt(rng, secret_key, bits2)
 
     secret_key, cloud_key, ciphertext1, ciphertext2
 end
 
-
+#=
 # elementary full comparator gate that is used to compare the i-th bit:
 #   input: ai and bi the i-th bit of a and b
 #          lsb_carry: the result of the comparison on the lowest bits
@@ -76,20 +83,20 @@ function process(cloud_key, ciphertext1, ciphertext2)
 
     result
 end
+=#
+
+
+function process(cloud_key, ciphertext1, ciphertext2)
+    params = tfhe_parameters(cloud_key)
+    result = empty_ciphertext(params, size(ciphertext1)...)
+    tfhe_gate_AND!(cloud_key, result, ciphertext1, ciphertext2)
+    result
+end
 
 
 function verify(secret_key, answer)
-
-    # if necessary, the params are inside the key
-    params = tfhe_parameters(secret_key)
-
-    # decrypt and rebuild the 16-bit plaintext answer
-    int_answer = Int16(0)
-    for i in 1:16
-        ai = tfhe_decrypt_bit!(secret_key, answer[i])
-        int_answer |= (ai<<(i-1))
-    end
-
+    answer_bits = tfhe_decrypt(secret_key, answer)
+    int_answer = bitarray_to_int(answer_bits)
     println("Answer: $int_answer")
 end
 

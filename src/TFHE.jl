@@ -15,11 +15,11 @@ include("lwe-bootstrapping.jl")
 include("keys.jl")
 export tfhe_key_pair
 export tfhe_parameters
-export TFHEEncryptedBit
 export TFHESecretKey
 export TFHECloudKey
-export tfhe_encrypt_bit!
-export tfhe_decrypt_bit!
+export tfhe_encrypt
+export tfhe_decrypt
+export empty_ciphertext
 
 include("boot-gates.jl")
 export tfhe_gate_XNOR!
