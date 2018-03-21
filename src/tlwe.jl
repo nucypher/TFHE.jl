@@ -108,7 +108,7 @@ end
 
 
 # create an homogeneous tlwe sample
-function tLweSymEncryptZero(rng::AbstractRNG, rng2, result::TLweSampleArray, alpha::Float64, key::TLweKey)
+function tLweSymEncryptZero(rng::AbstractRNG, result::TLweSampleArray, alpha::Float64, key::TLweKey)
     N = key.params.N
     k = key.params.k
 
@@ -118,7 +118,7 @@ function tLweSymEncryptZero(rng::AbstractRNG, rng2, result::TLweSampleArray, alp
 
     a_part = view(result.a, 1:k,
         1:size(result.a.coefsT,3), 1:size(result.a.coefsT,4), 1:size(result.a.coefsT,5))
-    tp_uniform!(rng2, a_part)
+    tp_uniform!(rng, a_part)
 
     for i in 1:k
         tp_add_mul!(

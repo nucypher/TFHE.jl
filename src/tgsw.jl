@@ -112,17 +112,17 @@ end
 
 
 # Result = tGsw(0)
-function tGswEncryptZero(rng::AbstractRNG, rng2, result::TGswSampleArray, alpha::Float64, key::TGswKey)
+function tGswEncryptZero(rng::AbstractRNG, result::TGswSampleArray, alpha::Float64, key::TGswKey)
     rlkey = key.tlwe_key
-    tLweSymEncryptZero(rng, rng2, result.samples, alpha, rlkey)
+    tLweSymEncryptZero(rng, result.samples, alpha, rlkey)
 end
 
 
 # encrypts a constant message
 function tGswSymEncryptInt(
-        rng::AbstractRNG, rng2, result::TGswSampleArray, messages::Array{Int32, 1},
+        rng::AbstractRNG, result::TGswSampleArray, messages::Array{Int32, 1},
         alpha::Float64, key::TGswKey)
-    tGswEncryptZero(rng, rng2, result, alpha, key)
+    tGswEncryptZero(rng, result, alpha, key)
     tGswAddMuIntH(result, messages, key.params)
 end
 

@@ -18,8 +18,7 @@ function lwe_bootstrapping_key(
     kin = key_in.key
     alpha = accum_params.alpha_min
 
-    rng2 = MersenneTwister(123) # !!!
-    tGswSymEncryptInt(rng, rng2, bk, kin, alpha, rgsw_key)
+    tGswSymEncryptInt(rng, bk, kin, alpha, rgsw_key)
 
     bk, ks
 end
