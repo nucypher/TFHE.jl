@@ -1,5 +1,5 @@
 struct LweParams
-    n :: Int32
+    n :: Int
     alpha_min :: Float64
     alpha_max :: Float64
 end
@@ -10,7 +10,7 @@ struct LweKey
     key :: Array{Int32, 1}
 
     function LweKey(rng::AbstractRNG, params::LweParams)
-        new(params, rand_uniform_int32(rng, Int(params.n))) # TODO: remove Int()
+        new(params, rand_uniform_int32(rng, params.n))
     end
 
     # extractions Ring Lwe . Lwe
@@ -82,6 +82,7 @@ function lweSymEncrypt(
     #result.b .= rand_gaussian_torus32(rng, Int32(0), alpha, size(messages)...) + messages
     #result.a .= rand_uniform_torus32(rng, n, size(messages)...)
 
+    # TODO: use matrix multiplication?
     result.b .+= sum_int32(result.a .* key.key, 1)
     result.current_variances .= ones(Float64, size(messages)...) * alpha^2
 end
@@ -185,10 +186,10 @@ end
 
 
 struct LweKeySwitchKey
-    n :: Int32 # length of the input key: s'
-    t :: Int32 # decomposition length
-    basebit :: Int32 # log_2(base)
-    base :: Int32 # decomposition base: a power of 2
+    n :: Int # length of the input key: s'
+    t :: Int # decomposition length
+    basebit :: Int # log_2(base)
+    base :: Int # decomposition base: a power of 2
     out_params :: LweParams # params of the output key s
     # these don't seem to be used anywhere
     #ks0_raw :: Array{LweSample, 1} # tableau qui contient tout les Lwe samples de taille nlbase
@@ -205,13 +206,13 @@ struct LweKeySwitchKey
     =#
     function LweKeySwitchKey(
             rng::AbstractRNG,
-            n::Int32, t::Int32, basebit::Int32,
+            n::Int, t::Int, basebit::Int,
             in_key::LweKey, out_key::LweKey)
 
         out_params = out_key.params
 
         base = 1 << basebit
-        ks = LweSampleArray(out_params, Int(base), Int(t), Int(n)) # TODO: get rid of Int()
+        ks = LweSampleArray(out_params, base, t, n)
 
         alpha = out_key.params.alpha_min
 
@@ -230,9 +231,9 @@ struct LweKeySwitchKey
         hs = Torus32(2):Torus32(base)
         js = Torus32(1):Torus32(t)
         messages = (
-            reshape(in_key.key, 1, 1, Int(n))
-            .* (reshape(hs, Int(base-1), 1, 1) - Torus32(1))
-            .* (Torus32(1) .<< (32 - reshape(js, 1, Int(t), 1) * basebit))
+            reshape(in_key.key, 1, 1, n)
+            .* (reshape(hs, base - 1, 1, 1) - Torus32(1))
+            .* (Torus32(1) .<< (32 - reshape(js, 1, t, 1) * basebit))
             )
 
         lweSymEncryptWithExternalNoise(rng, view(ks, 2:base, 1:t, 1:n), messages, noises, alpha, out_key)
@@ -279,15 +280,15 @@ end
 function lweKeySwitchTranslate_fromArray(result::LweSampleArray,
         ks::LweSampleArray, params::LweParams,
         ai::Array{Torus32, 2},
-        n::Int32, t::Int32, basebit::Int32)
+        n::Int, t::Int, basebit::Int)
 
-    base::Int32 = 1 << basebit # base=2 in [CGGI16]
-    prec_offset::Int32 = 1 << (32 - (1 + basebit * t)) # precision
-    mask::Int32 = base - 1
+    base = 1 << basebit # base=2 in [CGGI16]
+    prec_offset = 1 << (32 - (1 + basebit * t)) # precision
+    mask = base - 1
 
     # ai is of size n
-    js = reshape(1:t, Int(t), 1, 1)
-    ai = reshape(ai, 1, Int(n), :)
+    js = reshape(1:t, t, 1, 1)
+    ai = reshape(ai, 1, n, :)
     aijs = ((ai + prec_offset) .>> (32 - js * basebit)) .& mask + 1
 
     # TODO: batch over ciphertext bits too

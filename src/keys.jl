@@ -1,6 +1,6 @@
 struct TFHEParameters
-    ks_t :: Int32
-    ks_basebit :: Int32
+    ks_t :: Int
+    ks_basebit :: Int
     in_out_params :: LweParams
     tgsw_params :: TGswParams
 
@@ -12,13 +12,13 @@ struct TFHEParameters
 
         mul_by_sqrt_two_over_pi(x) = x * sqrt(2 / pi)
 
-        N::Int32 = 1024
-        k::Int32 = 1
-        n::Int32 = 500
-        bk_l::Int32 = 2
-        bk_Bgbit::Int32 = 10
-        ks_basebit::Int32 = 2
-        ks_length::Int32 = 8
+        N = 1024
+        k = 1
+        n = 500
+        bk_l = 2
+        bk_Bgbit = 10
+        ks_basebit = 2
+        ks_length = 8
         ks_stdev = mul_by_sqrt_two_over_pi(1/2^15) # standard deviation
         bk_stdev = mul_by_sqrt_two_over_pi(9e-9) # standard deviation
         max_stdev = mul_by_sqrt_two_over_pi(1/2^4 / 4) # max standard deviation for a 1/4 msg space

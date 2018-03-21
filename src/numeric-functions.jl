@@ -30,9 +30,9 @@ end
 # Used to approximate the phase to the nearest message possible in the message space
 # The constant Msize will indicate on which message space we are working (how many messages possible)
 #
-# "travailler sur 63 bits au lieu de 64, car dans nos cas pratiques, c'est plus précis"
-modSwitchFromTorus32(phase::Torus32, Msize::Int) = modSwitchFromTorus32(phase, Int32(Msize))
-function modSwitchFromTorus32(phase::Torus32, Msize::Int32)
+# "work on 63 bits instead of 64, because in our practical cases, it's more precise"
+function modSwitchFromTorus32(phase::Torus32, Msize::Int)
+    Msize = Int32(Msize)
     interv::UInt64 = ((UInt64(1) << 63)/Msize) * UInt64(2) # width of each intervall
     half_interval::UInt64 = interv / 2 # begin of the first intervall
     phase64::UInt64 = (UInt64(unsigned(phase)) << 32) + half_interval
@@ -43,9 +43,10 @@ end
 # Used to approximate the phase to the nearest message possible in the message space
 # The constant Msize will indicate on which message space we are working (how many messages possible)
 #
-# "travailler sur 63 bits au lieu de 64, car dans nos cas pratiques, c'est plus précis"
-modSwitchToTorus32(mu::Int, Msize::Int) = modSwitchToTorus32(Int32(mu), Int32(Msize))
-function modSwitchToTorus32(mu::Int32, Msize::Int32)
+# "work on 63 bits instead of 64, because in our practical cases, it's more precise"
+function modSwitchToTorus32(mu::Int, Msize::Int)
+    mu = Int32(mu)
+    Msize = Int32(Msize)
     interv::UInt64 = ((UInt64(1) << 63) / Msize) * UInt64(2) # width of each intervall
     phase64::UInt64 = unsigned(mu) * interv
     # floor to the nearest multiples of interv

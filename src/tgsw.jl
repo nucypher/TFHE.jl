@@ -1,15 +1,15 @@
 struct TGswParams
-    l :: Int32 # decomp length
-    Bgbit :: Int32 # log_2(Bg)
-    Bg :: Int32 # decomposition base (must be a power of 2)
-    halfBg :: Int32 # Bg/2
-    maskMod :: UInt32 # Bg-1
+    l :: Int # decomp length
+    Bgbit :: Int # log_2(Bg)
+    Bg :: Int # decomposition base (must be a power of 2)
+    halfBg :: Torus32 # Bg/2
+    maskMod :: Torus32 # Bg-1
     tlwe_params :: TLweParams # Params of each row
-    kpl :: Int32 # number of rows = (k+1)*l
+    kpl :: Int # number of rows = (k+1)*l
     h :: Array{Torus32, 1} # powers of Bgbit
-    offset :: UInt32 # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
+    offset :: Torus32 # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
 
-    function TGswParams(l::Int32, Bgbit::Int32, tlwe_params::TLweParams)
+    function TGswParams(l::Int, Bgbit::Int, tlwe_params::TLweParams)
 
         Bg = 1 << Bgbit
         halfBg = div(Bg, 2)
@@ -17,7 +17,8 @@ struct TGswParams
         h = Torus32(1) .<< (32 - (1:l) * Bgbit) # 1/(Bg^(i+1)) as a Torus32
 
         # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
-        offset = sum(UInt32(1) .<< (32 - (1:l) * Bgbit)) * halfBg
+        offset = signed(
+            trunc(UInt32, unsigned(sum(1 .<< (32 - (1:l) * Bgbit)) * halfBg) .<< 32 .>> 32))
 
         new(
             l,
@@ -26,7 +27,7 @@ struct TGswParams
             halfBg,
             Bg - 1,
             tlwe_params,
-            convert(Int32, (tlwe_params.k + 1) * l),
+            (tlwe_params.k + 1) * l,
             h,
             offset,
             )
@@ -52,13 +53,13 @@ end
 
 struct TGswSampleArray
     samples :: TLweSampleArray # TLweSample* all_sample; (k+1)l TLwe Sample
-    k :: Int32
-    l :: Int32
+    k :: Int
+    l :: Int
 
     function TGswSampleArray(params::TGswParams, dims...)
         k = params.tlwe_params.k
         l = params.l
-        samples = TLweSampleArray(params.tlwe_params, Int(l), Int(k) + 1, dims...)
+        samples = TLweSampleArray(params.tlwe_params, l, k + 1, dims...)
         new(samples, k, l)
     end
 end
@@ -66,14 +67,14 @@ end
 
 struct TGswSampleFFTArray
     samples :: TLweSampleFFTArray # TLweSample* all_sample; (k+1)l TLwe Sample
-    k :: Int32
-    l :: Int32
+    k :: Int
+    l :: Int
 
     # constructor content
     function TGswSampleFFTArray(params::TGswParams, dims...)
         k = params.tlwe_params.k
         l = params.l
-        samples = TLweSampleFFTArray(params.tlwe_params, Int(l), Int(k) + 1, dims...)
+        samples = TLweSampleFFTArray(params.tlwe_params, l, k + 1, dims...)
         new(samples, k, l)
     end
 
@@ -84,7 +85,7 @@ end
 
 
 Base.view(arr::TGswSampleFFTArray, ranges...) = TGswSampleFFTArray(
-    view(arr.samples, 1:Int(arr.l), 1:Int(arr.k + 1), ranges...), arr.k, arr.l)
+    view(arr.samples, 1:arr.l, 1:(arr.k + 1), ranges...), arr.k, arr.l)
 Base.size(arr::TGswSampleFFTArray) = size(arr.samples)[3:end]
 
 
@@ -105,7 +106,7 @@ function tGswAddMuIntH(result::TGswSampleArray, messages::Array{Int32, 1}, param
     for bloc in 1:(k+1)
         result.samples.a.coefsT[1, bloc, :, bloc, :] .+= (
             reshape(messages, 1, length(messages))
-            .* reshape(h, Int(l), 1))
+            .* reshape(h, l, 1))
     end
 end
 
@@ -135,15 +136,15 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGsw
 
     maskMod = params.maskMod
     halfBg = params.halfBg
-    offset::Int32 = signed(params.offset)
+    offset = params.offset
 
-    result = IntPolynomialArray(Int(N), Int(l), size(sample)...) # TODO: get rid of Int()
+    result = IntPolynomialArray(N, l, size(sample)...)
 
     # do the decomposition
     # TODO: vectorize further
     for q in 1:(k+1)
         for p in 1:l
-            decal::Int32 = (32 - p * Bgbit)
+            decal = (32 - p * Bgbit)
             result.coefs[:,p,q,:] .= ((sample.coefsT[:,q,:] + offset) .>> decal) .& maskMod - halfBg
         end
     end
@@ -173,7 +174,7 @@ function tGswFFTExternMulToTLwe(accum::TLweSampleArray, gsw::TGswSampleFFTArray,
     # shape: l, k + 1, size(accum)...
     deca = tGswTorus32PolynomialDecompH(accum.a, params)
 
-    decaFFT = LagrangeHalfCPolynomialArray(Int(N), Int(l), Int(k+1), size(accum)...) # fft version # TODO: get rid of Int()
+    decaFFT = LagrangeHalfCPolynomialArray(N, l, k + 1, size(accum)...) # fft version
     ip_ifft!(decaFFT, deca)
 
     tLweFFTClear(tmpa, tlwe_params)

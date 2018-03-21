@@ -1,5 +1,5 @@
 function lwe_bootstrapping_key(
-        rng::AbstractRNG, ks_t::Int32, ks_basebit::Int32, key_in::LweKey, rgsw_key::TGswKey)
+        rng::AbstractRNG, ks_t::Int, ks_basebit::Int, key_in::LweKey, rgsw_key::TGswKey)
 
     bk_params = rgsw_key.params
     in_out_params = key_in.params
@@ -14,7 +14,7 @@ function lwe_bootstrapping_key(
 
     ks = LweKeySwitchKey(rng, N, ks_t, ks_basebit, extracted_key, key_in)
 
-    bk = TGswSampleArray(bk_params, Int(n))
+    bk = TGswSampleArray(bk_params, n)
     kin = key_in.key
     alpha = accum_params.alpha_min
 
@@ -34,7 +34,7 @@ struct LweBootstrappingKeyFFT
     ks :: LweKeySwitchKey # the keyswitch key (s'->s)
 
     function LweBootstrappingKeyFFT(
-            rng::AbstractRNG, ks_t::Int32, ks_basebit::Int32, lwe_key::LweKey, tgsw_key::TGswKey)
+            rng::AbstractRNG, ks_t::Int, ks_basebit::Int, lwe_key::LweKey, tgsw_key::TGswKey)
 
         in_out_params = lwe_key.params
         bk_params = tgsw_key.params
@@ -46,7 +46,7 @@ struct LweBootstrappingKeyFFT
         n = in_out_params.n
 
         # Bootstrapping Key FFT
-        bkFFT = TGswSampleFFTArray(bk_params, Int(n))
+        bkFFT = TGswSampleFFTArray(bk_params, n)
         tGswToFFTConvert(bkFFT, bk, bk_params)
 
         new(in_out_params, bk_params, accum_params, extract_params, bkFFT, ks)
@@ -82,7 +82,7 @@ end
 function tfhe_blindRotate_FFT(accum::TLweSampleArray,
                                  bkFFT::TGswSampleFFTArray,
                                  bara::Array{Int32},
-                                 n::Int32,
+                                 n::Int,
                                  bk_params::TGswParams)
 
     #TGswSampleFFT* temp = new_TGswSampleFFT(bk_params);
@@ -128,21 +128,20 @@ function tfhe_blindRotateAndExtract_FFT(result::LweSampleArray,
                                            bk::TGswSampleFFTArray,
                                            barb::Array{Int32},
                                            bara::Array{Int32},
-                                           n::Int32,
+                                           n::Int,
                                            bk_params::TGswParams)
 
     accum_params = bk_params.tlwe_params
     extract_params = accum_params.extracted_lweparams
     N = accum_params.N
-    _2N = Int32(2) * N
 
     # Test polynomial
-    testvectbis = TorusPolynomialArray(Int(N), size(result)...) # TODO: get rid of Int()
+    testvectbis = TorusPolynomialArray(N, size(result)...)
     # Accumulator
     acc = TLweSampleArray(accum_params, size(result)...)
 
     # testvector = X^{2N-barb}*v
-    tp_mul_by_xai!(testvectbis, _2N - barb, v)
+    tp_mul_by_xai!(testvectbis, Int32(2 * N) - barb, v)
 
     tLweNoiselessTrivial(acc, testvectbis, accum_params)
 
@@ -170,14 +169,13 @@ function tfhe_bootstrap_woKS_FFT(result::LweSampleArray,
     accum_params = bk.accum_params
     in_params = bk.in_out_params
     N = accum_params.N
-    Nx2 = 2 * N
     n = in_params.n
 
-    testvect = TorusPolynomialArray(Int(N), size(result)...) # TODO: get rid of Int()
+    testvect = TorusPolynomialArray(N, size(result)...)
 
     # Modulus switching
-    barb = modSwitchFromTorus32.(x.b, Nx2)
-    bara = modSwitchFromTorus32.(x.a, Nx2)
+    barb = modSwitchFromTorus32.(x.b, 2 * N)
+    bara = modSwitchFromTorus32.(x.a, 2 * N)
 
     # the initial testvec = [mu,mu,mu,...,mu]
     # TODO: use an appropriate method

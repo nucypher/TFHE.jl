@@ -1,11 +1,11 @@
 struct TLweParams
-    N :: Int32 # a power of 2: degree of the polynomials
-    k :: Int32 # number of polynomials in the mask
+    N :: Int # a power of 2: degree of the polynomials
+    k :: Int # number of polynomials in the mask
     alpha_min :: Float64 # minimal noise s.t. the sample is secure
     alpha_max :: Float64 # maximal noise s.t. we can decrypt
     extracted_lweparams :: LweParams # lwe params if one extracts
 
-    function TLweParams(N::Int32, k::Int32, alpha_min::Float64, alpha_max::Float64)
+    function TLweParams(N::Int, k::Int, alpha_min::Float64, alpha_max::Float64)
         new(N, k, alpha_min, alpha_max, LweParams(N * k, alpha_min, alpha_max))
     end
 end
@@ -18,9 +18,9 @@ struct TLweKey
     function TLweKey(rng::AbstractRNG, params::TLweParams)
         N = params.N
         k = params.k
-        key = IntPolynomialArray(Int(N), Int(k)) # TODO: remove Int()
+        key = IntPolynomialArray(N, k)
         arr = flat_coefs(key)
-        arr .= rand_uniform_int32(rng, Int(N), Int(k)) # TODO: remove Int()
+        arr .= rand_uniform_int32(rng, N, k)
         new(params, key)
     end
 end
@@ -30,7 +30,7 @@ struct TLweSampleArray
     a :: TorusPolynomialArray # array of length k+1: mask + right term
     #b :: TorusPolynomial # alias of a[k] to get the right term
     current_variances :: AbstractArray # avg variance of the sample
-    k :: Int32
+    k :: Int
 
     function TLweSampleArray(params::TLweParams, dims...)
         # Small change here:
@@ -40,7 +40,7 @@ struct TLweSampleArray
         # or we can also do it in a single for loop
         #   &sample.a[0],...,&sample.a[k]
         k = params.k
-        a = TorusPolynomialArray(Int(params.N), Int(k + 1), dims...) # TODO: get rid of Int()
+        a = TorusPolynomialArray(params.N, k + 1, dims...)
         current_variances = zeros(Float64, dims...)
 
         new(a, current_variances, k)
@@ -54,12 +54,12 @@ mutable struct TLweSampleFFTArray
     a :: LagrangeHalfCPolynomialArray # array of length k+1: mask + right term
     #b :: LagrangeHalfCPolynomial # alias of a[k] to get the right term
     current_variances :: AbstractArray # avg variance of the sample
-    k :: Int32 # required during the destructor call...
+    k :: Int # required during the destructor call...
 
     function TLweSampleFFTArray(params::TLweParams, dims...)
         # a is a table of k+1 polynomials, b is an alias for &a[k]
         k = params.k
-        a = LagrangeHalfCPolynomialArray(Int(params.N), Int(k + 1), dims...) # TODO: get rid of Int()
+        a = LagrangeHalfCPolynomialArray(params.N, k + 1, dims...)
         current_variances = zeros(Float64, dims...)
         new(a, current_variances, k)
     end
@@ -81,21 +81,20 @@ Base.view(arr::TLweSampleFFTArray, ranges...) = TLweSampleFFTArray(
     arr.k)
 
 Base.reshape(arr::TLweSampleFFTArray, dims...) = TLweSampleFFTArray(
-    reshape(arr.a, Int(arr.k + 1), dims...),
+    reshape(arr.a, arr.k + 1, dims...),
     reshape(arr.current_variances, dims...),
     arr.k)
 
 
 function tLweExtractLweSampleIndex(
-        result::LweSampleArray, x::TLweSampleArray, index::Int32, params::LweParams, rparams::TLweParams)
+        result::LweSampleArray, x::TLweSampleArray, index::Int, params::LweParams, rparams::TLweParams)
 
     N = rparams.N
     k = rparams.k
     @assert params.n == k*N
 
-    # TODO: get rid of Int()
     # TODO: use an appropriate method to get coefsT
-    a_view = reshape(result.a, Int(N), Int(k), size(result)...)
+    a_view = reshape(result.a, N, k, size(result)...)
     a_view[1:(index+1),:,:] .= x.a.coefsT[(index+1):-1:1, 1:k, :]
     a_view[(index+2):N,:,:] .= -x.a.coefsT[N:-1:(index+2), 1:k,:]
 
@@ -104,7 +103,7 @@ end
 
 
 function tLweExtractLweSample(result::LweSampleArray, x::TLweSampleArray, params::LweParams, rparams::TLweParams)
-    tLweExtractLweSampleIndex(result, x, Int32(0), params, rparams)
+    tLweExtractLweSampleIndex(result, x, 0, params, rparams)
 end
 
 
@@ -115,7 +114,7 @@ function tLweSymEncryptZero(rng::AbstractRNG, rng2, result::TLweSampleArray, alp
 
     # TODO: use an appropriate method
 
-    result.a.coefsT[:,k+1,:,:,:] .= rand_gaussian_torus32(rng, Int32(0), alpha, Int(N), size(result)...) # TODO: get rid of Int()
+    result.a.coefsT[:,k+1,:,:,:] .= rand_gaussian_torus32(rng, Int32(0), alpha, N, size(result)...)
 
     a_part = view(result.a, 1:k,
         1:size(result.a.coefsT,3), 1:size(result.a.coefsT,4), 1:size(result.a.coefsT,5))
