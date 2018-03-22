@@ -144,7 +144,8 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGsw
     for q in 1:(k+1)
         for p in 1:l
             decal = (32 - p * Bgbit)
-            @. result.coefs[:,p,q,:] = ((sample.coefsT[:,q,:] + offset) >> decal) & maskMod - halfBg
+            @views @. result.coefs[:,p,q,:] =
+                ((sample.coefsT[:,q,:] + offset) >> decal) & maskMod - halfBg
         end
     end
 

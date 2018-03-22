@@ -53,7 +53,7 @@ Base.view(arr::LagrangeHalfCPolynomialArray, ranges...) =
     LagrangeHalfCPolynomialArray(view(arr.coefsC, 1:size(arr.coefsC, 1), ranges...))
 
 
-function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
+@views function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
     res = flat_coefs(result)
     a = flat_coefs(p)
     N = polynomial_size(p)
@@ -69,7 +69,7 @@ function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
 end
 
 
-function tp_ifft!(result::LagrangeHalfCPolynomialArray, p::TorusPolynomialArray)
+@views function tp_ifft!(result::LagrangeHalfCPolynomialArray, p::TorusPolynomialArray)
     res = flat_coefs(result)
     a = flat_coefs(p)
     N = polynomial_size(p)
@@ -85,7 +85,7 @@ function tp_ifft!(result::LagrangeHalfCPolynomialArray, p::TorusPolynomialArray)
 end
 
 
-function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
+@views function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
     res = flat_coefs(result)
     a = flat_coefs(p)
     N = polynomial_size(p)
@@ -167,7 +167,7 @@ end
 
 
 # result = (X^ai-1) * source
-function tp_mul_by_xai_minus_one!(
+@views function tp_mul_by_xai_minus_one!(
         result::TorusPolynomialArray, ais::Array{Int32}, source::TorusPolynomialArray)
 
     N = polynomial_size(result)
@@ -193,7 +193,7 @@ end
 
 
 # result= X^{a}*source
-function tp_mul_by_xai!(
+@views function tp_mul_by_xai!(
         result::TorusPolynomialArray, ais::Array{Int32}, source::TorusPolynomialArray)
 
     N = polynomial_size(result)
