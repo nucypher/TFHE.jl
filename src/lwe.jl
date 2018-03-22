@@ -252,8 +252,7 @@ function take_filtered(src, ind, filter_func)
     ind_flat_filtered = ind_flat[mask]
 
     flat_coords = ind_dim * (outer_ind_filtered - 1) + ind_flat_filtered
-    flat_result = src_flat[flat_coords]
-    flat_result
+    src_flat[flat_coords]
 end
 
 
@@ -285,7 +284,7 @@ function lweKeySwitchTranslate_fromArray(result::LweSampleArray,
 
     # TODO: batch over ciphertext bits too
     for i in 1:length(result)
-        sub_ks = LweSampleArray(take_filtered(ks, aijs[:,:,i], j -> j != 1))
+        sub_ks = take_filtered(ks, view(aijs, :, :, i), j -> j != 1)
         lweSubAll(result[i], sub_ks, params)
     end
 end

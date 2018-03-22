@@ -18,9 +18,7 @@ struct TLweKey
     function TLweKey(rng::AbstractRNG, params::TLweParams)
         N = params.N
         k = params.k
-        key = IntPolynomialArray(N, k)
-        arr = flat_coefs(key)
-        arr .= rand_uniform_int32(rng, N, k)
+        key = IntPolynomialArray(rand_uniform_int32(rng, N, k))
         new(params, key)
     end
 end
