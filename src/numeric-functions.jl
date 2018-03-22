@@ -32,8 +32,8 @@ end
 #
 # "work on 63 bits instead of 64, because in our practical cases, it's more precise"
 function modSwitchFromTorus32(phase::Torus32, Msize::Int)
-    Msize = Int32(Msize)
-    interv::UInt64 = ((UInt64(1) << 63)/Msize) * UInt64(2) # width of each intervall
+    Msize_i32 = Int32(Msize)
+    interv::UInt64 = ((UInt64(1) << 63)/Msize_i32) * UInt64(2) # width of each intervall
     half_interval::UInt64 = interv / 2 # begin of the first intervall
     phase64::UInt64 = (UInt64(unsigned(phase)) << 32) + half_interval
     # floor to the nearest multiples of interv
@@ -45,10 +45,10 @@ end
 #
 # "work on 63 bits instead of 64, because in our practical cases, it's more precise"
 function modSwitchToTorus32(mu::Int, Msize::Int)
-    mu = Int32(mu)
-    Msize = Int32(Msize)
-    interv::UInt64 = ((UInt64(1) << 63) / Msize) * UInt64(2) # width of each intervall
-    phase64::UInt64 = unsigned(mu) * interv
+    mu_i32 = Int32(mu)
+    Msize_i32 = Int32(Msize)
+    interv::UInt64 = ((UInt64(1) << 63) / Msize_i32) * UInt64(2) # width of each intervall
+    phase64::UInt64 = unsigned(mu_i32) * interv
     # floor to the nearest multiples of interv
     Torus32(signed(UInt32(phase64 >> 32)))
 end
