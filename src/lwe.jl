@@ -129,7 +129,7 @@ end
 
 # result = (0,mu)
 function lweNoiselessTrivial(result::LweSampleArray, mu::Torus32, params::LweParams)
-    lweNoiselessTrivial(result, ones(Torus32, size(result)...) * mu, params)
+    lweNoiselessTrivial(result, ones(Torus32, size(result)...) .* mu, params)
 end
 function lweNoiselessTrivial(result::LweSampleArray, mus::Array{Torus32}, params::LweParams)
     @assert size(mus) == size(result)
@@ -168,7 +168,7 @@ end
 function lweAddMulTo(result::LweSampleArray, p::Int32, sample::LweSampleArray, params::LweParams)
     result.a .+= p * sample.a
     result.b .+= p * sample.b
-    result.current_variances .+= p^2 * sample.current_variances
+    result.current_variances .+= p^2 .* sample.current_variances
 end
 
 
@@ -176,7 +176,7 @@ end
 function lweSubMulTo(result::LweSampleArray, p::Int32, sample::LweSampleArray, params::LweParams)
     result.a .-= p * sample.a
     result.b .-= p * sample.b
-    result.current_variances .+= p^2 * sample.current_variances
+    result.current_variances .+= p^2 .* sample.current_variances
 end
 
 
