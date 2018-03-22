@@ -1,32 +1,28 @@
 # This structure represents an integer polynomial modulo X^N+1
-struct IntPolynomialArray
-    coefs :: AbstractArray # Array{Int32}
-
-    IntPolynomialArray(N::Int, dims...) = new(Array{Int32}(N, dims...))
-    IntPolynomialArray(arr::AbstractArray) = new(arr)
+struct IntPolynomialArray{T}
+    coefs :: T
 end
+
+IntPolynomialArray(N::Int, dims...) = IntPolynomialArray(Array{Int32}(N, dims...))
 
 
 # This structure represents an torus polynomial modulo X^N+1
-struct TorusPolynomialArray
-    coefsT :: AbstractArray # Array{Torus32}
-
-    TorusPolynomialArray(N::Int, dims...) = new(Array{Torus32}(N, dims...))
-    TorusPolynomialArray(arr::AbstractArray) = new(arr)
+struct TorusPolynomialArray{T}
+    coefsT :: T
 end
+
+TorusPolynomialArray(N::Int, dims...) = TorusPolynomialArray(Array{Torus32}(N, dims...))
 
 
 # This structure is used for FFT operations, and is a representation
 # over C of a polynomial in R[X]/X^N+1
-struct LagrangeHalfCPolynomialArray
-    coefsC :: AbstractArray # Array{Complex{Float64}}
+struct LagrangeHalfCPolynomialArray{T}
+    coefsC :: T
+end
 
-    function LagrangeHalfCPolynomialArray(N::Int, dims...)
-        @assert mod(N, 2) == 0
-        new(Array{Complex{Float64}}(div(N, 2), dims...))
-    end
-
-    LagrangeHalfCPolynomialArray(arr::AbstractArray) = new(arr)
+function LagrangeHalfCPolynomialArray(N::Int, dims...)
+    @assert mod(N, 2) == 0
+    LagrangeHalfCPolynomialArray(Array{Complex{Float64}}(div(N, 2), dims...))
 end
 
 

@@ -26,45 +26,35 @@ struct TLweKey
 end
 
 
-struct TLweSampleArray
-    a :: TorusPolynomialArray # array of length k+1: mask + right term
-    #b :: TorusPolynomial # alias of a[k] to get the right term
-    current_variances :: AbstractArray # avg variance of the sample
+struct TLweSampleArray{T, U}
+    a :: TorusPolynomialArray{T} # array of length k+1: mask + right term
+    current_variances :: U # avg variance of the sample
     k :: Int
-
-    function TLweSampleArray(params::TLweParams, dims...)
-        # Small change here:
-        # a is a table of k+1 polynomials, b is an alias for &a[k]
-        # like that, we can access all the coefficients as before:
-        #   &sample.a[0],...,&sample.a[k-1]  and &sample.b
-        # or we can also do it in a single for loop
-        #   &sample.a[0],...,&sample.a[k]
-        k = params.k
-        a = TorusPolynomialArray(params.N, k + 1, dims...)
-        current_variances = zeros(Float64, dims...)
-
-        new(a, current_variances, k)
-    end
-
-    TLweSampleArray(a, cv, k) = new(a, cv, k)
 end
 
 
-mutable struct TLweSampleFFTArray
-    a :: LagrangeHalfCPolynomialArray # array of length k+1: mask + right term
-    #b :: LagrangeHalfCPolynomial # alias of a[k] to get the right term
-    current_variances :: AbstractArray # avg variance of the sample
+function TLweSampleArray(params::TLweParams, dims...)
+    k = params.k
+    a = TorusPolynomialArray(params.N, k + 1, dims...)
+    current_variances = zeros(Float64, dims...)
+
+    TLweSampleArray(a, current_variances, k)
+end
+
+
+mutable struct TLweSampleFFTArray{T, U}
+    a :: LagrangeHalfCPolynomialArray{T} # array of length k+1: mask + right term
+    current_variances :: U # avg variance of the sample
     k :: Int # required during the destructor call...
+end
 
-    function TLweSampleFFTArray(params::TLweParams, dims...)
-        # a is a table of k+1 polynomials, b is an alias for &a[k]
-        k = params.k
-        a = LagrangeHalfCPolynomialArray(params.N, k + 1, dims...)
-        current_variances = zeros(Float64, dims...)
-        new(a, current_variances, k)
-    end
 
-    TLweSampleFFTArray(a, cv, k) = new(a, cv, k)
+function TLweSampleFFTArray(params::TLweParams, dims...)
+    # a is a table of k+1 polynomials
+    k = params.k
+    a = LagrangeHalfCPolynomialArray(params.N, k + 1, dims...)
+    current_variances = zeros(Float64, dims...)
+    TLweSampleFFTArray(a, current_variances, k)
 end
 
 

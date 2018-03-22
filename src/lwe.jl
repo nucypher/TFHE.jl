@@ -28,17 +28,17 @@ struct LweKey
 end
 
 
-struct LweSampleArray
-    a :: AbstractArray # the n coefs of the mask (times dims)
-    b :: AbstractArray
-    current_variances :: AbstractArray # average noise of the sample (times dims)
-
-    LweSampleArray(params::LweParams, dims...) = new(
-        Array{Torus32}(params.n, dims...),
-        Array{Torus32}(dims...),
-        Array{Float64}(dims...))
-    LweSampleArray(a_arr, b_arr, c_arr) = new(a_arr, b_arr, c_arr)
+struct LweSampleArray{T, U, V}
+    a :: T # the n coefs of the mask (times dims)
+    b :: U
+    current_variances :: V # average noise of the sample (times dims)
 end
+
+LweSampleArray(params::LweParams, dims...) = LweSampleArray(
+    Array{Torus32}(params.n, dims...),
+    Array{Torus32}(dims...),
+    Array{Float64}(dims...))
+
 
 Base.size(arr::LweSampleArray, args...) = size(arr.b, args...)
 Base.view(arr::LweSampleArray, ranges...) = LweSampleArray(
