@@ -20,8 +20,7 @@ struct LweKey
         k = tlwe_key.params.k
         @assert params.n == k*N
 
-        key = Array{Int32, 1}(params.n)
-        key .= tlwe_key.key.coefs[:] # TODO: use an approprtiate method
+        key = tlwe_key.key.coefs[:] # TODO: use an approprtiate method
 
         new(params, key)
     end
@@ -79,7 +78,7 @@ function lweSymEncrypt(
 
     # TODO: use matrix multiplication?
     result.b .+= sum_int32(result.a .* key.key, 1)
-    result.current_variances .= ones(Float64, size(messages)...) * alpha^2
+    result.current_variances .= alpha^2
 end
 
 
@@ -98,7 +97,7 @@ function lweSymEncryptWithExternalNoise(
     result.a .= rand_uniform_torus32(rng, n, size(messages)...)
     result.b .+= sum_int32(result.a .* key.key, 1)
 
-    result.current_variances .= ones(Float64, size(messages)...) * alpha^2
+    result.current_variances .= alpha^2
 end
 
 
