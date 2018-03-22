@@ -139,15 +139,13 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGsw
 
     result = IntPolynomialArray(N, l, size(sample)...)
 
+    decal(p) = 32 - p * Bgbit
+
+    ps = reshape(1:l, 1, l, 1, 1)
+    sample_coefs = reshape(sample.coefsT, N, 1, size(sample)...)
+
     # do the decomposition
-    # TODO: vectorize further
-    for q in 1:(k+1)
-        for p in 1:l
-            decal = (32 - p * Bgbit)
-            @views @. result.coefs[:,p,q,:] =
-                ((sample.coefsT[:,q,:] + offset) >> decal) & maskMod - halfBg
-        end
-    end
+    @. result.coefs = ((sample_coefs + offset) >> decal(ps)) & maskMod - halfBg
 
     result
 end
