@@ -91,9 +91,9 @@ function tfhe_blindRotate_FFT(accum::TLweSampleArray,
 
     accum_in_temp3 = true
 
-    for i in 0:(n-1)
+    for i in 1:n
 
-        barai = bara[i+1,:] # !!! assuming the ciphertext is 1D
+        barai = bara[i,:] # !!! assuming the ciphertext is 1D
 
         # TODO: is it possible to avoid work for those cases and still keep array arithmetic?
         #       Does it even save that much work?
@@ -101,7 +101,7 @@ function tfhe_blindRotate_FFT(accum::TLweSampleArray,
         #    continue #indeed, this is an easy case!
         #end
 
-        tfhe_MuxRotate_FFT(temp2, temp3, view(bkFFT, i+1), barai, bk_params)
+        tfhe_MuxRotate_FFT(temp2, temp3, view(bkFFT, i), barai, bk_params)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = !accum_in_temp3

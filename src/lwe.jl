@@ -186,9 +186,6 @@ struct LweKeySwitchKey
     basebit :: Int # log_2(base)
     base :: Int # decomposition base: a power of 2
     out_params :: LweParams # params of the output key s
-    # these don't seem to be used anywhere
-    #ks0_raw :: Array{LweSample, 1} # tableau qui contient tout les Lwe samples de taille nlbase
-    #ks1_raw :: Array{LweSample, 2} # de taille nl  pointe vers un tableau ks0_raw dont les cases sont espaceés de base positions
     ks :: LweSampleArray # the keyswitch elements: a n.l.base matrix
     # de taille n pointe vers ks1 un tableau dont les cases sont espaceés de ell positions
 
