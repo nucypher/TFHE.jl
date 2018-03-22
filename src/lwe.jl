@@ -52,13 +52,17 @@ Base.reshape(arr::LweSampleArray, dims...) = LweSampleArray(
 Base.getindex(arr::LweSampleArray, ranges...) = view(arr, ranges...)
 
 
-# Sums an array over the axis, preserving the type
-function sum_int32(arr::Array{Int32}, axis)
+function vec_mul_mat(b::Array{Int32, 1}, a::Union{Array{Int32}, SubArray{Int32}})
+    s = squeeze(sum(a .* b, 1), 1)
     # TODO: sum() of an Int32 array produces an Int64 array.
     # Putting in this hack here for the time being.
-    s = squeeze(sum(arr, 1), 1)
-    signed.(trunc.(UInt32, unsigned.(s) .& 0xffffffff))
+    # This behavior may change in later Julia versions,
+    # then the conversion will not be necessary.
+    # (Despite the auto-promotion and conversion,
+    # it is still faster than matrix multiplication.)
+    to_int32.(s)
 end
+
 
 #=
  * This function encrypts message by using key, with stdev alpha
@@ -75,9 +79,7 @@ function lweSymEncrypt(
 
     result.b .= rand_gaussian_torus32(rng, Int32(0), alpha, size(messages)...) + messages
     result.a .= rand_uniform_torus32(rng, n, size(messages)...)
-
-    # TODO: use matrix multiplication?
-    result.b .+= sum_int32(result.a .* key.key, 1)
+    result.b .+= vec_mul_mat(key.key, result.a)
     result.current_variances .= alpha^2
 end
 
@@ -95,15 +97,14 @@ function lweSymEncryptWithExternalNoise(
 
     result.b .= messages + dtot32.(noises)
     result.a .= rand_uniform_torus32(rng, n, size(messages)...)
-    result.b .+= sum_int32(result.a .* key.key, 1)
-
+    result.b .+= vec_mul_mat(key.key, result.a)
     result.current_variances .= alpha^2
 end
 
 
 # This function computes the phase of sample by using key : phi = b - a.s
 function lwePhase(sample::LweSampleArray, key::LweKey)
-    sample.b - sum_int32(sample.a .* key.key, 1)
+    sample.b - vec_mul_mat(key.key, sample.a)
 end
 
 

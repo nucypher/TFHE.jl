@@ -61,7 +61,10 @@ end
 
 
 # !!! check that this works correctly
+function to_int32(x::Int64)
+    signed(trunc(UInt32, unsigned(x) & 0xffffffff))
+end
 function to_int32(x::Float64)
-    signed(trunc(UInt32, unsigned(round(Int64, x)) << 32 >> 32))
+    to_int32(round(Int64, x))
 end
 
