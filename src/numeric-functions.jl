@@ -56,7 +56,7 @@ end
 
 # from double to Torus32
 function dtot32(d)
-    trunc.(Int32, (d - trunc.(d)) * 2^32)
+    trunc(Int32, (d - trunc(d)) * 2^32)
 end
 
 
