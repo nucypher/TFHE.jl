@@ -59,8 +59,8 @@ function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
     N = polynomial_size(p)
 
     rev_in = Array{Float64, 2}(2 * N, length(p))
-    rev_in[1:N,:] .= a / 2
-    rev_in[N+1:end,:] .= -rev_in[1:N,:]
+    rev_in[1:N,:] .= a ./ 2
+    rev_in[N+1:end,:] .= .-rev_in[1:N,:]
 
     # TODO: use a preallocated array and plan_rfft()
     rev_out = rfft(rev_in, 1)
@@ -75,8 +75,8 @@ function tp_ifft!(result::LagrangeHalfCPolynomialArray, p::TorusPolynomialArray)
     N = polynomial_size(p)
 
     rev_in = Array{Float64, 2}(2 * N, length(p))
-    rev_in[1:N,:] .= a[1:N,:] / 2^33
-    rev_in[(N+1):end,:] .= -rev_in[1:N,:]
+    rev_in[1:N,:] .= a[1:N,:] ./ 2^33
+    rev_in[(N+1):end,:] .= .-rev_in[1:N,:]
 
     # TODO: use a preallocated array and plan_rfft()
     rev_out = rfft(rev_in, 1)
@@ -92,10 +92,10 @@ function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
 
     fw_in = Array{Complex{Float64}, 2}(N + 1, length(p))
     fw_in[1:2:N+1,:] .= 0
-    fw_in[2:2:N+1,:] .= a[:,:]
+    fw_in[2:2:N+1,:] .= a
 
     # TODO: use a preallocated array and plan_irfft()
-    fw_out = irfft(fw_in, 2 * N, 1) * (2 * N)
+    fw_out = irfft(fw_in, 2 * N, 1) .* (2 * N)
 
     # TODO: move to numeric-functions.jl (need to figure out how to preserve the broadcasting)
     # TODO: a view() is necessary here
@@ -181,12 +181,12 @@ function tp_mul_by_xai_minus_one!(
     for i in 1:length(ais)
         ai = ais[i]
         if ai < N
-            out[1:ai,:,i] .= -in_[(N-ai+1):N,:,i] - in_[1:ai,:,i] # sur que i-a<0
-            out[(ai+1):N,:,i] .= in_[1:(N-ai),:,i] - in_[(ai+1):N,:,i] # sur que N>i-a>=0
+            out[1:ai,:,i] .= .-in_[(N-ai+1):N,:,i] .- in_[1:ai,:,i] # sur que i-a<0
+            out[(ai+1):N,:,i] .= in_[1:(N-ai),:,i] .- in_[(ai+1):N,:,i] # sur que N>i-a>=0
         else
             aa = ai - N
-            out[1:aa,:,i] .= in_[(N-aa+1):N,:,i] - in_[1:aa,:,i] # sur que i-a<0
-            out[(aa+1):N,:,i] .= -in_[1:(N-aa),:,i] - in_[(aa+1):N,:,i] # sur que N>i-a>=0
+            out[1:aa,:,i] .= in_[(N-aa+1):N,:,i] .- in_[1:aa,:,i] # sur que i-a<0
+            out[(aa+1):N,:,i] .= .-in_[1:(N-aa),:,i] .- in_[(aa+1):N,:,i] # sur que N>i-a>=0
         end
     end
 end
@@ -207,12 +207,12 @@ function tp_mul_by_xai!(
     for i in 1:length(ais)
         a = ais[i]
         if a < N
-            out[1:a,i] .= -in_[(N-a+1):N,i] # sur que i-a<0
+            out[1:a,i] .= .-in_[(N-a+1):N,i] # sur que i-a<0
             out[(a+1):N,i] .= in_[1:(N-a),i] # sur que N>i-a>=0
         else
             aa = a - N
             out[1:aa,i] .= in_[(N-aa+1):N,i] # sur que i-a<0
-            out[(aa+1):N,i] .= -in_[1:(N-aa),i] # sur que N>i-a>=0
+            out[(aa+1):N,i] .= .-in_[1:(N-aa),i] # sur que N>i-a>=0
         end
     end
 end

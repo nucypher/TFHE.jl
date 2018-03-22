@@ -14,11 +14,10 @@ struct TGswParams
         Bg = 1 << Bgbit
         halfBg = div(Bg, 2)
 
-        h = Torus32(1) .<< (32 - (1:l) * Bgbit) # 1/(Bg^(i+1)) as a Torus32
+        h = @. Torus32(1) << (32 - (1:l) * Bgbit) # 1/(Bg^(i+1)) as a Torus32
 
         # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
-        offset = signed(
-            trunc(UInt32, unsigned(sum(1 .<< (32 - (1:l) * Bgbit)) * halfBg) .<< 32 .>> 32))
+        offset = to_int32(sum(1 .<< (32 .- (1:l) .* Bgbit)) * halfBg)
 
         new(
             l,
@@ -145,7 +144,7 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGsw
     for q in 1:(k+1)
         for p in 1:l
             decal = (32 - p * Bgbit)
-            result.coefs[:,p,q,:] .= ((sample.coefsT[:,q,:] + offset) .>> decal) .& maskMod - halfBg
+            @. result.coefs[:,p,q,:] = ((sample.coefsT[:,q,:] + offset) >> decal) & maskMod - halfBg
         end
     end
 

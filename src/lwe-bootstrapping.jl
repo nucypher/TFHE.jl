@@ -140,7 +140,7 @@ function tfhe_blindRotateAndExtract_FFT(result::LweSampleArray,
     acc = TLweSampleArray(accum_params, size(result)...)
 
     # testvector = X^{2N-barb}*v
-    tp_mul_by_xai!(testvectbis, Int32(2 * N) - barb, v)
+    tp_mul_by_xai!(testvectbis, Int32(2 * N) .- barb, v)
 
     tLweNoiselessTrivial(acc, testvectbis, accum_params)
 

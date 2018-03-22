@@ -84,7 +84,7 @@ function tLweExtractLweSampleIndex(
     # TODO: use an appropriate method to get coefsT
     a_view = reshape(result.a, N, k, size(result)...)
     a_view[1:(index+1),:,:] .= x.a.coefsT[(index+1):-1:1, 1:k, :]
-    a_view[(index+2):N,:,:] .= -x.a.coefsT[N:-1:(index+2), 1:k,:]
+    a_view[(index+2):N,:,:] .= .-x.a.coefsT[N:-1:(index+2), 1:k,:]
 
     result.b .= x.a.coefsT[index+1, k+1, :]
 end
@@ -132,7 +132,7 @@ end
 function tLweNoiselessTrivial(result::TLweSampleArray, mu::TorusPolynomialArray, params::TLweParams)
     k = params.k
     tp_clear!(result.a)
-    result.a.coefsT[:,result.k+1,:] .= mu.coefsT[:,:] # TODO: wrap in a function?
+    result.a.coefsT[:,result.k+1,:] .= mu.coefsT # TODO: wrap in a function?
     result.current_variances .= 0.
 end
 

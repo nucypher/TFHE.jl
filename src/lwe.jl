@@ -95,7 +95,7 @@ function lweSymEncryptWithExternalNoise(
 
     n = key.params.n
 
-    result.b .= messages + dtot32.(noises)
+    result.b .= messages .+ dtot32.(noises)
     result.a .= rand_uniform_torus32(rng, n, size(messages)...)
     result.b .+= vec_mul_mat(key.key, result.a)
     result.current_variances .= alpha^2
@@ -212,7 +212,7 @@ struct LweKeySwitchKey
         noises = rand_gaussian_float(rng, alpha, base - 1, t, n)
 
         # recenter the noises
-        noises -= mean(noises)
+        noises .-= mean(noises)
 
         # generate the ks
 
@@ -222,11 +222,12 @@ struct LweKeySwitchKey
         # mess::Torus32 = (in_key.key[i] * Int32(h - 1)) * Int32(1 << (32 - j * basebit))
         hs = Torus32(2):Torus32(base)
         js = Torus32(1):Torus32(t)
-        messages = (
-            reshape(in_key.key, 1, 1, n)
-            .* (reshape(hs, base - 1, 1, 1) - Torus32(1))
-            .* (Torus32(1) .<< (32 - reshape(js, 1, t, 1) * basebit))
-            )
+
+        r_key = reshape(in_key.key, 1, 1, n)
+        r_hs = reshape(hs, base - 1, 1, 1)
+        r_js = reshape(js, 1, t, 1)
+
+        messages = @. r_key * (r_hs - Torus32(1)) * (Torus32(1) << (32 - r_js * basebit))
 
         lweSymEncryptWithExternalNoise(rng, view(ks, 2:base, 1:t, 1:n), messages, noises, alpha, out_key)
 
@@ -251,7 +252,7 @@ function take_filtered(src, ind, filter_func)
     outer_ind_filtered = outer_ind[mask]
     ind_flat_filtered = ind_flat[mask]
 
-    flat_coords = ind_dim * (outer_ind_filtered - 1) + ind_flat_filtered
+    flat_coords = @. ind_dim * (outer_ind_filtered - 1) + ind_flat_filtered
     src_flat[flat_coords]
 end
 
@@ -280,7 +281,7 @@ function lweKeySwitchTranslate_fromArray(result::LweSampleArray,
     # ai is of size n
     js = reshape(1:t, t, 1, 1)
     ai = reshape(ai, 1, n, :)
-    aijs = ((ai + prec_offset) .>> (32 - js * basebit)) .& mask + 1
+    aijs = @. ((ai + prec_offset) >> (32 - js * basebit)) & mask + 1
 
     # TODO: batch over ciphertext bits too
     for i in 1:length(result)
