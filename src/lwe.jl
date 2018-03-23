@@ -128,11 +128,7 @@ end
 
 
 # result = (0,mu)
-function lweNoiselessTrivial(result::LweSampleArray, mu::Torus32, params::LweParams)
-    lweNoiselessTrivial(result, ones(Torus32, size(result)...) .* mu, params)
-end
-function lweNoiselessTrivial(result::LweSampleArray, mus::Array{Torus32}, params::LweParams)
-    @assert size(mus) == size(result)
+function lweNoiselessTrivial(result::LweSampleArray, mus::Union{Array{Torus32}, Torus32}, params::LweParams)
     result.a .= 0
     result.b .= mus
     result.current_variances .= 0
