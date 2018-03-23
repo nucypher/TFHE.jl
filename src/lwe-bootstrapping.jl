@@ -55,8 +55,9 @@ end
 
 
 function tfhe_MuxRotate_FFT(
-        result::TLweSampleArray, accum::TLweSampleArray, bki::TGswSampleFFTArray, barai::Array{Int32},
-        bk_params::TGswParams)
+        result::TLweSampleArray, accum::TLweSampleArray, bki::TGswSampleFFTArray, bk_idx::Int,
+        barai::Array{Int32}, bk_params::TGswParams, tmpa::TLweSampleFFTArray,
+        deca::IntPolynomialArray, decaFFT::LagrangeHalfCPolynomialArray)
 
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
     # temp = (X^barai-1)*ACC
@@ -64,7 +65,7 @@ function tfhe_MuxRotate_FFT(
     tLweMulByXaiMinusOne(result, barai, accum, bk_params.tlwe_params)
 
     # temp *= BKi
-    tGswFFTExternMulToTLwe(result, bki, bk_params)
+    tGswFFTExternMulToTLwe(result, bki, bk_idx, bk_params, tmpa, deca, decaFFT)
 
     # ACC += temp
     tLweAddTo(result, accum, bk_params.tlwe_params)
@@ -91,17 +92,19 @@ function tfhe_blindRotate_FFT(accum::TLweSampleArray,
 
     accum_in_temp3 = true
 
+    # For use in tGswFFTExternMulToTLwe(), so that we don't have to allocate them `n` times
+    tmpa = TLweSampleFFTArray(bk_params.tlwe_params, size(accum)...)
+    deca = IntPolynomialArray(bk_params.tlwe_params.N, bk_params.l, size(accum.a)...)
+    decaFFT = LagrangeHalfCPolynomialArray(
+        bk_params.tlwe_params.N, bk_params.l, bk_params.tlwe_params.k + 1,
+        size(accum)...)
+
     for i in 1:n
 
         barai = bara[i,:] # !!! assuming the ciphertext is 1D
 
-        # TODO: is it possible to avoid work for those cases and still keep array arithmetic?
-        #       Does it even save that much work?
-        #if barai == 0
-        #    continue #indeed, this is an easy case!
-        #end
-
-        tfhe_MuxRotate_FFT(temp2, temp3, view(bkFFT, i), barai, bk_params)
+        # FIXME: We could pass the view bkFFT[i] here, but on the current Julia it's too slow
+        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT, i, barai, bk_params, tmpa, deca, decaFFT)
 
         temp2, temp3 = temp3, temp2
         accum_in_temp3 = !accum_in_temp3

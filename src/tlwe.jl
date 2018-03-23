@@ -170,12 +170,3 @@ function tLweFFTClear(result::TLweSampleFFTArray, params::TLweParams)
     lp_clear!(result.a)
     result.current_variances .= 0.
 end
-
-# result = result + p*sample
-function tLweFFTAddMulRTo(
-        result::TLweSampleFFTArray, p::LagrangeHalfCPolynomialArray,
-        sample::TLweSampleFFTArray, params::TLweParams)
-    lp_add_mul!(result.a, p, sample.a)
-    # result.current_variance += sample.current_variance;
-    # TODO: how to compute the variance correctly?
-end

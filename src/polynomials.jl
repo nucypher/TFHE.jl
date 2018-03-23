@@ -204,16 +204,6 @@ function lp_mul!(
 end
 
 
-# termwise multiplication and addTo in Lagrange space
-function lp_add_mul!(
-        accum::LagrangeHalfCPolynomialArray,
-        a::LagrangeHalfCPolynomialArray,
-        b::LagrangeHalfCPolynomialArray)
-
-    accum.coefsC .+= a.coefsC .* b.coefsC
-end
-
-
 # Torus polynomial functions
 
 # TorusPolynomial = 0

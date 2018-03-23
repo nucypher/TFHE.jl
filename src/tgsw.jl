@@ -126,7 +126,8 @@ function tGswSymEncryptInt(
 end
 
 
-function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGswParams)
+function tGswTorus32PolynomialDecompH(
+        result::IntPolynomialArray, sample::TorusPolynomialArray, params::TGswParams)
 
     N = params.tlwe_params.N
     l = params.l
@@ -137,8 +138,6 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGsw
     halfBg = params.halfBg
     offset = params.offset
 
-    result = IntPolynomialArray(N, l, size(sample)...)
-
     decal(p) = 32 - p * Bgbit
 
     ps = reshape(1:l, 1, l, 1, 1)
@@ -146,8 +145,6 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomialArray, params::TGsw
 
     # do the decomposition
     @. result.coefs = ((sample_coefs + offset) >> decal(ps)) & maskMod - halfBg
-
-    result
 end
 
 
@@ -158,34 +155,59 @@ function tGswToFFTConvert(result::TGswSampleFFTArray, source::TGswSampleArray, p
 end
 
 
+function tLweFFTAddMulRTo(res, a, b, bk_idx)
+    #=
+    # FIXME: When Julia is smart enough, can be replaced by
+    d = reshape(a, div(N, 2), 1, l, k+1, size(accum, 1))
+    @views for i in 1:(k+1)
+        for j in 1:l
+            tmpa.a.coefsC .+= d[:,:,j,i,:] .* b[:,:,j,i,bk_idx]
+        end
+    end
+    =#
+
+    N2 = size(res, 1)
+    k = size(res, 2)
+    ml = size(res, 3)
+    l = size(a, 2)
+    @inbounds @simd for m in 1:ml
+    for i in 1:k
+        for j in 1:l
+                for q in 1:k
+                for p in 1:N2
+                        res[p,q,m] = res[p,q,m] + a[p,j,i,m] * b[p,q,j,i,bk_idx]
+                    end
+                end
+            end
+        end
+    end
+end
+
+
 # External product (*): accum = gsw (*) accum
-function tGswFFTExternMulToTLwe(accum::TLweSampleArray, gsw::TGswSampleFFTArray, params::TGswParams)
+function tGswFFTExternMulToTLwe(
+        accum::TLweSampleArray, gsw::TGswSampleFFTArray, bk_idx, params::TGswParams,
+        tmpa::TLweSampleFFTArray, deca::IntPolynomialArray, decaFFT::LagrangeHalfCPolynomialArray)
+
     tlwe_params = params.tlwe_params
     k = tlwe_params.k
     l = params.l
     kpl = params.kpl
     N = tlwe_params.N
 
-    # TODO attention, improve these new/delete...
-    tmpa = TLweSampleFFTArray(tlwe_params, size(accum)...)
+    tGswTorus32PolynomialDecompH(deca, accum.a, params)
 
-    # shape: l, k + 1, size(accum)...
-    deca = tGswTorus32PolynomialDecompH(accum.a, params)
-
-    decaFFT = LagrangeHalfCPolynomialArray(N, l, k + 1, size(accum)...) # fft version
     ip_ifft!(decaFFT, deca)
 
     tLweFFTClear(tmpa, tlwe_params)
 
-    for i in 1:(k+1)
-        for j in 1:l
-            tLweFFTAddMulRTo(
-                tmpa, # N/2 x k+1 x message_len
-                view(decaFFT, j:j, i, 1:size(accum, 1)), # N/2 x message_len
-                view(gsw.samples, j, i), # N/2 x k+1
-                tlwe_params)
-        end
-    end
+    N2 = div(N, 2)
+    ml = size(accum, 1)
+    res = tmpa.a.coefsC
+    a = decaFFT.coefsC
+    b = gsw.samples.a.coefsC
+
+    tLweFFTAddMulRTo(res, a, b, bk_idx)
 
     tLweFromFFTConvert(accum, tmpa, tlwe_params)
 end
