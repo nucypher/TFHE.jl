@@ -56,8 +56,8 @@ function TLweSampleFFTArray(params::TLweParams, dims...)
 end
 
 
-Base.size(arr::TLweSampleArray) = size(arr.current_variances)
-Base.size(arr::TLweSampleFFTArray) = size(arr.current_variances)
+Base.size(arr::TLweSampleArray, args...) = size(arr.current_variances, args...)
+Base.size(arr::TLweSampleFFTArray, args...) = size(arr.current_variances, args...)
 
 Base.view(arr::TLweSampleArray, ranges...) = TLweSampleArray(
     view(arr.a, 1:(arr.k+1), ranges...),
