@@ -268,53 +268,85 @@ function tp_add_to!(result::TorusPolynomialArray, poly2::TorusPolynomialArray)
 end
 
 
-# result = (X^ai-1) * source
-@views function tp_mul_by_xai_minus_one!(
-        result::TorusPolynomialArray, ais::Array{Int32}, source::TorusPolynomialArray)
-
-    N = polynomial_size(result)
-    out = result.coefsT
-    in_ = source.coefsT
-
-    # TODO: we may need a fully vectorized form of this
-
-    @assert (all(x >= 0 for x in ais) && all(x < 2 * N for x in ais))
-
-    for i in 1:length(ais)
+function _tp_mul_by_xai_minus_one!(out, ais, in_)
+    N = size(out, 1)
+    @inbounds @simd for i in 1:size(out, 3)
         ai = ais[i]
         if ai < N
-            out[1:ai,:,i] .= .-in_[(N-ai+1):N,:,i] .- in_[1:ai,:,i] # sur que i-a<0
-            out[(ai+1):N,:,i] .= in_[1:(N-ai),:,i] .- in_[(ai+1):N,:,i] # sur que N>i-a>=0
+            # FIXME: when Julia is smart enough, can be replaced by:
+            #out[1:ai,:,i] .= .-in_[(N-ai+1):N,:,i] .- in_[1:ai,:,i] # sur que i-a<0
+            #out[(ai+1):N,:,i] .= in_[1:(N-ai),:,i] .- in_[(ai+1):N,:,i] # sur que N>i-a>=0
+            for q in 1:size(out, 2)
+                for j in 1:ai
+                    out[j,q,i] = -in_[N-ai+j,q,i] - in_[j,q,i] # sur que i-a<0
+                end
+                for j in (ai+1):N
+                    out[j,q,i] = in_[j-ai,q,i] - in_[j,q,i] # sur que N>i-a>=0
+                end
+            end
         else
             aa = ai - N
-            out[1:aa,:,i] .= in_[(N-aa+1):N,:,i] .- in_[1:aa,:,i] # sur que i-a<0
-            out[(aa+1):N,:,i] .= .-in_[1:(N-aa),:,i] .- in_[(aa+1):N,:,i] # sur que N>i-a>=0
+
+            # FIXME: when Julia is smart enough, can be replaced by:
+            #out[1:aa,:,i] .= @views (in_[(N-aa+1):N,:,i] .- in_[1:aa,:,i]) # sur que i-a<0
+            #out[(aa+1):N,:,i] .= @views (.-in_[1:(N-aa),:,i] .- in_[(aa+1):N,:,i]) # sur que N>i-a>=0
+            for q in 1:size(out, 2)
+                for j in 1:aa
+                    out[j,q,i] = in_[N-aa+j,q,i] - in_[j,q,i] # sur que i-a<0
+                end
+                for j in (aa+1):N
+                    out[j,q,i] = -in_[j-aa,q,i] - in_[j,q,i] # sur que N>i-a>=0
+                end
+            end
         end
     end
+end
+
+
+# result = (X^ai-1) * source
+function tp_mul_by_xai_minus_one!(
+        result::TorusPolynomialArray, ais::Array{Int32, 1}, source::TorusPolynomialArray)
+    # FIXME: currently Julia needs a function boundary to optimize the loop inside
+    _tp_mul_by_xai_minus_one!(result.coefsT, ais, source.coefsT)
+end
+
+
+function _tp_mul_by_xai!(out, ais, in_)
+    N = size(out, 1)
+    @inbounds @simd for i in 1:size(out, 2)
+        ai = ais[i]
+        if ai < N
+            # FIXME: when Julia is smart enough, can be replaced by:
+            #out[1:ai,i] .= .-in_[(N-ai+1):N,i] # sur que i-a<0
+            #out[(ai+1):N,i] .= in_[1:(N-ai),i] # sur que N>i-a>=0
+            for j in 1:ai
+                out[j,i] = -in_[N-ai+j,i] # sur que i-a<0
+            end
+            for j in (ai+1):N
+                out[j,i] = in_[j-ai,i] # sur que N>i-a>=0
+            end
+        else
+            aa = ai - N
+
+            # FIXME: when Julia is smart enough, can be replaced by:
+            #out[1:aa,i] .= in_[(N-aa+1):N,i] # sur que i-a<0
+            #out[(aa+1):N,i] .= .-in_[1:(N-aa),i] # sur que N>i-a>=0
+            for j in 1:aa
+                out[j,i] = in_[N-aa+j,i] # sur que i-a<0
+            end
+            for j in (aa+1):N
+                out[j,i] = -in_[j-aa,i] # sur que N>i-a>=0
+            end
+        end
+    end
+
 end
 
 
 # result= X^{a}*source
-@views function tp_mul_by_xai!(
+function tp_mul_by_xai!(
         result::TorusPolynomialArray, ais::Array{Int32}, source::TorusPolynomialArray)
-
-    N = polynomial_size(result)
-    out = result.coefsT
-    in_ = source.coefsT
-
-    # TODO: we may need a fully vectorized form of this
-
-    @assert (all(x >= 0 for x in ais) && all(x < 2 * N for x in ais))
-
-    for i in 1:length(ais)
-        a = ais[i]
-        if a < N
-            out[1:a,i] .= .-in_[(N-a+1):N,i] # sur que i-a<0
-            out[(a+1):N,i] .= in_[1:(N-a),i] # sur que N>i-a>=0
-        else
-            aa = a - N
-            out[1:aa,i] .= in_[(N-aa+1):N,i] # sur que i-a<0
-            out[(aa+1):N,i] .= .-in_[1:(N-aa),i] # sur que N>i-a>=0
-        end
-    end
+    # FIXME: currently Julia needs a function boundary to optimize the loop inside
+    _tp_mul_by_xai!(result.coefsT, ais, source.coefsT)
 end
+
