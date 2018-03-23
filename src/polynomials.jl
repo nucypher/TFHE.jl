@@ -114,60 +114,105 @@ function get_irfft_plan(dim1::Int, dim2::Int)
 end
 
 
-@views function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
-    res = flat_coefs(result)
-    a = flat_coefs(p)
-    N = polynomial_size(p)
-
-    p = get_rfft_plan(2 * N, length(p))
-
-    rev_in = p.in_arr
-    rev_in[1:N,:] .= a ./ 2
-    rev_in[N+1:end,:] .= .-rev_in[1:N,:]
-
-    execute_fft_plan!(p)
-    rev_out = p.out_arr
-
-    res[1:div(N,2),:] .= rev_out[2:2:N+1,:]
+function prepare_ifft_input!(rev_in, a, coeff)
+    # FIXME: when Julia is smart enough, can be replaced by:
+    #rev_in[1:N,:] .= a .* coeff
+    #rev_in[N+1:end,:] .= .-rev_in[1:N,:]
+    N = size(a, 1)
+    batch = size(a, 2)
+    @inbounds @simd for q in 1:batch
+        for i in 1:N
+            rev_in[i,q] = a[i, q] * coeff
+        end
+        for i in N+1:2*N
+            rev_in[i,q] = -rev_in[i-N,q]
+        end
+    end
 end
 
 
-@views function tp_ifft!(result::LagrangeHalfCPolynomialArray, p::TorusPolynomialArray)
-    res = flat_coefs(result)
-    a = flat_coefs(p)
-    N = polynomial_size(p)
-
-    p = get_rfft_plan(2 * N, length(p))
-
-    rev_in = p.in_arr
-    rev_in[1:N,:] .= a[1:N,:] ./ 2^33
-    rev_in[(N+1):end,:] .= .-rev_in[1:N,:]
-
-    execute_fft_plan!(p)
-    rev_out = p.out_arr
-
-    res[1:div(N,2),:] .= rev_out[2:2:N,:]
+function prepare_ifft_output!(res, rev_out)
+    # FIXME: when Julia is smart enough, can be replaced by:
+    #res[1:div(N,2),:] .= rev_out[2:2:N+1,:]
+    N = size(rev_out, 1) - 1
+    batch = size(rev_out, 2)
+    @inbounds @simd for q in 1:batch
+        for i in 1:div(N,2)
+            res[i,q] = rev_out[2*i,q]
+        end
+    end
 end
 
 
-@views function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
+function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
     res = flat_coefs(result)
     a = flat_coefs(p)
     N = polynomial_size(p)
 
-    p = get_irfft_plan(2 * N, length(p))
+    pl = get_rfft_plan(2 * N, length(p))
 
-    fw_in = p.in_arr
-    fw_in[1:2:N+1,:] .= 0
-    fw_in[2:2:N+1,:] .= a
+    prepare_ifft_input!(pl.in_arr, a, 1 / 2)
+    execute_fft_plan!(pl)
+    prepare_ifft_output!(res, pl.out_arr)
+end
 
-    execute_fft_plan!(p)
-    fw_out = p.out_arr
+
+function tp_ifft!(result::LagrangeHalfCPolynomialArray, p::TorusPolynomialArray)
+    res = flat_coefs(result)
+    a = flat_coefs(p)
+    N = polynomial_size(p)
+
+    pl = get_rfft_plan(2 * N, length(p))
+
+    prepare_ifft_input!(pl.in_arr, a, 1 / 2^33)
+    execute_fft_plan!(pl)
+    prepare_ifft_output!(res, pl.out_arr)
+end
+
+
+function prepare_fft_input!(fw_in, a)
+    # FIXME: when Julia is smart enough, can be replaced by:
+    #fw_in[1:2:N+1,:] .= 0
+    #fw_in[2:2:N+1,:] .= a
+    N_over_2 = size(a, 1)
+    batch = size(a, 2)
+    @inbounds @simd for q in 1:batch
+        for i in 1:N_over_2
+            fw_in[2*i-1,q] = 0
+            fw_in[2*i,q] = a[i,q]
+        end
+        fw_in[N_over_2*2+1,q] = 0
+    end
+end
+
+
+function prepare_fft_output!(res, fw_out, coeff)
+    # FIXME: when Julia is smart enough, can be replaced by:
+    #res .= to_int32.(fw_out[1:N, :] .* coeff)
+    N = size(res, 1)
+    batch = size(res, 2)
+    @inbounds @simd for q in 1:batch
+        for i in 1:N
+            res[i,q] = to_int32(fw_out[i,q] * coeff)
+        end
+    end
+end
+
+
+function tp_fft!(result::TorusPolynomialArray, p::LagrangeHalfCPolynomialArray)
+    res = flat_coefs(result)
+    a = flat_coefs(p)
+    N = polynomial_size(p)
+
+    pl = get_irfft_plan(2 * N, length(p))
+
+    prepare_fft_input!(pl.in_arr, a)
+    execute_fft_plan!(pl)
 
     # the first part is from the original libtfhe;
     # the second part is from a different FFT scaling in Julia
     coeff = (2^32 / N) * (2 * N)
-    res .= to_int32.(fw_out[1:N, :] .* coeff)
+    prepare_fft_output!(res, pl.out_arr, coeff)
 end
 
 
@@ -175,13 +220,14 @@ function tp_add_mul!(
         result::TorusPolynomialArray, poly1::IntPolynomialArray, poly2::TorusPolynomialArray)
 
     N = polynomial_size(result)
-    tmp = [LagrangeHalfCPolynomialArray(N, size(result)...) for i in 1:3]
+    tmp1 = LagrangeHalfCPolynomialArray(N, size(poly1)...)
+    tmp2 = LagrangeHalfCPolynomialArray(N, size(poly2)...)
+    tmp3 = LagrangeHalfCPolynomialArray(N, size(result)...)
     tmpr = TorusPolynomialArray(N, size(result)...)
-
-    ip_ifft!(tmp[1], poly1)
-    tp_ifft!(tmp[2], poly2)
-    lp_mul!(tmp[3], tmp[1], tmp[2])
-    tp_fft!(tmpr, tmp[3])
+    ip_ifft!(tmp1, poly1)
+    tp_ifft!(tmp2, poly2)
+    lp_mul!(tmp3, tmp1, tmp2)
+    tp_fft!(tmpr, tmp3)
     tp_add_to!(result, tmpr)
 end
 
