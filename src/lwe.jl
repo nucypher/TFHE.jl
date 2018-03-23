@@ -152,10 +152,20 @@ end
 
 
 function lweSubAll(result::LweSampleArray, samples::LweSampleArray, params::LweParams)
+    #=
+    # When Julia is smart enough, can be replaced by:
     for i in 1:length(samples)
         result.a .-= samples.a[:,i]
         result.b .-= samples.b[i]
         result.current_variances .+= samples.current_variances[i]
+    end
+    =#
+    @inbounds @simd for i in 1:length(samples)
+        for j in 1:size(samples.a, 1)
+            result.a[j,i] -= samples.a[j,i]
+        end
+        result.b[i] -= samples.b[i]
+        result.current_variances[i] += samples.current_variances[i]
     end
 end
 
