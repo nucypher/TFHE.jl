@@ -53,17 +53,80 @@ Base.view(arr::LagrangeHalfCPolynomialArray, ranges...) =
     LagrangeHalfCPolynomialArray(view(arr.coefsC, 1:size(arr.coefsC, 1), ranges...))
 
 
+struct RFFTPlan
+    plan
+    in_arr :: Array{Float64, 2}
+    out_arr :: Array{Complex{Float64}, 2}
+
+    function RFFTPlan(dim1, dim2)
+        in_arr = Array{Float64, 2}(dim1, dim2)
+        out_arr = Array{Complex{Float64}, 2}(div(dim1, 2) + 1, dim2)
+        p = plan_rfft(in_arr, 1)
+        new(p, in_arr, out_arr)
+    end
+end
+
+
+struct IRFFTPlan
+    plan
+    in_arr :: Array{Complex{Float64}, 2}
+    out_arr :: Array{Float64, 2}
+
+    function IRFFTPlan(dim1, dim2)
+        in_arr = Array{Complex{Float64}, 2}(div(dim1, 2) + 1, dim2)
+        out_arr = Array{Float64, 2}(dim1, dim2)
+        p = plan_irfft(in_arr, dim1, 1)
+        new(p, in_arr, out_arr)
+    end
+end
+
+
+function execute_fft_plan!(p::Union{RFFTPlan, IRFFTPlan})
+    A_mul_B!(p.out_arr, p.plan, p.in_arr)
+end
+
+
+rfft_plans = Dict{Tuple{Int, Int}, RFFTPlan}()
+irfft_plans = Dict{Tuple{Int, Int}, IRFFTPlan}()
+
+
+function get_rfft_plan(dim1::Int, dim2::Int)
+    key = (dim1, dim2)
+    if !haskey(rfft_plans, key)
+        p = RFFTPlan(dim1, dim2)
+        rfft_plans[key] = p
+        p
+    else
+        rfft_plans[key]
+    end
+end
+
+
+function get_irfft_plan(dim1::Int, dim2::Int)
+    key = (dim1, dim2)
+    if !haskey(irfft_plans, key)
+        p = IRFFTPlan(dim1, dim2)
+        irfft_plans[key] = p
+        p
+    else
+        irfft_plans[key]
+    end
+end
+
+
 @views function ip_ifft!(result::LagrangeHalfCPolynomialArray, p::IntPolynomialArray)
     res = flat_coefs(result)
     a = flat_coefs(p)
     N = polynomial_size(p)
 
-    rev_in = Array{Float64, 2}(2 * N, length(p))
+    p = get_rfft_plan(2 * N, length(p))
+
+    rev_in = p.in_arr
     rev_in[1:N,:] .= a ./ 2
     rev_in[N+1:end,:] .= .-rev_in[1:N,:]
 
-    # TODO: use a preallocated array and plan_rfft()
-    rev_out = rfft(rev_in, 1)
+    execute_fft_plan!(p)
+    rev_out = p.out_arr
 
     res[1:div(N,2),:] .= rev_out[2:2:N+1,:]
 end
@@ -74,12 +137,14 @@ end
     a = flat_coefs(p)
     N = polynomial_size(p)
 
-    rev_in = Array{Float64, 2}(2 * N, length(p))
+    p = get_rfft_plan(2 * N, length(p))
+
+    rev_in = p.in_arr
     rev_in[1:N,:] .= a[1:N,:] ./ 2^33
     rev_in[(N+1):end,:] .= .-rev_in[1:N,:]
 
-    # TODO: use a preallocated array and plan_rfft()
-    rev_out = rfft(rev_in, 1)
+    execute_fft_plan!(p)
+    rev_out = p.out_arr
 
     res[1:div(N,2),:] .= rev_out[2:2:N,:]
 end
@@ -90,17 +155,18 @@ end
     a = flat_coefs(p)
     N = polynomial_size(p)
 
-    fw_in = Array{Complex{Float64}, 2}(N + 1, length(p))
+    p = get_irfft_plan(2 * N, length(p))
+
+    fw_in = p.in_arr
     fw_in[1:2:N+1,:] .= 0
     fw_in[2:2:N+1,:] .= a
 
-    # TODO: use a preallocated array and plan_irfft()
-    fw_out = irfft(fw_in, 2 * N, 1) .* (2 * N)
+    execute_fft_plan!(p)
+    fw_out = p.out_arr
 
-    # TODO: move to numeric-functions.jl (need to figure out how to preserve the broadcasting)
-    # TODO: a view() is necessary here
-
-    coeff = 2^32 / N
+    # the first part is from the original libtfhe;
+    # the second part is from a different FFT scaling in Julia
+    coeff = (2^32 / N) * (2 * N)
     res .= to_int32.(fw_out[1:N, :] .* coeff)
 end
 
