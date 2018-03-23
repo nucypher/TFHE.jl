@@ -242,7 +242,7 @@ function take_filtered(src, ind, filter_func)
     ind_flat = reshape(ind, length(ind))
 
     ind_dim = size(src, 1)
-    outer_ind = collect(1:length(ind))
+    outer_ind = 1:length(ind)
 
     mask = filter_func.(ind_flat)
     outer_ind_filtered = outer_ind[mask]
