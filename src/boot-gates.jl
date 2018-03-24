@@ -154,7 +154,8 @@ end
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_CONSTANT!(bk::TFHECloudKey, result::LweSampleArray, vals::BitArray)
+function tfhe_gate_CONSTANT!(
+        bk::TFHECloudKey, result::LweSampleArray, vals::Union{BitArray, Array{Bool}})
     in_out_params = bk.params.in_out_params
     MU = modSwitchToTorus32(1, 8)
     lweNoiselessTrivial(result, map(x -> x ? MU : -MU, vals), in_out_params)
