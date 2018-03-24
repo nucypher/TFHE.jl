@@ -13,37 +13,6 @@ key_pairs = @global_fixture begin
 end
 
 
-function process(cloud_key, ciphertext1, ciphertext2)
-
-    # if necessary, the params are inside the key
-    params = cloud_key.params
-
-    # do some operations on the ciphertexts: here, we will compute the
-    # minimum of the two
-    result = new_gate_bootstrapping_ciphertext_array(16, params)
-    minimum(result, ciphertext1, ciphertext2, 16, cloud_key)
-
-    result
-end
-
-
-function verify(secret_key, answer)
-
-    # if necessary, the params are inside the key
-    params = secret_key.params
-
-    # decrypt and rebuild the 16-bit plaintext answer
-    int_answer = Int16(0)
-    for i in 0:15
-        ai = bootsSymDecrypt(answer[i+1], secret_key)
-        int_answer |= (ai<<i)
-    end
-
-    int_answer
-end
-
-
-
 @testcase "Key creation performance" begin
 
     rng = MersenneTwister(123)
