@@ -3,7 +3,7 @@ struct IntPolynomialArray{T}
     coefs :: T
 end
 
-IntPolynomialArray(N::Int, dims...) = IntPolynomialArray(Array{Int32}(N, dims...))
+IntPolynomialArray(N::Int, dims...) = IntPolynomialArray(Array{Int32}(undef, N, dims...))
 
 
 # This structure represents an torus polynomial modulo X^N+1
@@ -11,7 +11,7 @@ struct TorusPolynomialArray{T}
     coefsT :: T
 end
 
-TorusPolynomialArray(N::Int, dims...) = TorusPolynomialArray(Array{Torus32}(N, dims...))
+TorusPolynomialArray(N::Int, dims...) = TorusPolynomialArray(Array{Torus32}(undef, N, dims...))
 
 
 # This structure is used for FFT operations, and is a representation
@@ -22,7 +22,7 @@ end
 
 function LagrangeHalfCPolynomialArray(N::Int, dims...)
     @assert mod(N, 2) == 0
-    LagrangeHalfCPolynomialArray(Array{Complex{Float64}}(div(N, 2), dims...))
+    LagrangeHalfCPolynomialArray(Array{Complex{Float64}}(undef, div(N, 2), dims...))
 end
 
 
@@ -52,8 +52,8 @@ struct RFFTPlan
     out_arr :: Array{Complex{Float64}, 2}
 
     function RFFTPlan(dim1, dim2)
-        in_arr = Array{Float64, 2}(dim1, dim2)
-        out_arr = Array{Complex{Float64}, 2}(div(dim1, 2) + 1, dim2)
+        in_arr = Array{Float64, 2}(undef, dim1, dim2)
+        out_arr = Array{Complex{Float64}, 2}(undef, div(dim1, 2) + 1, dim2)
         p = plan_rfft(in_arr, 1)
         new(p, in_arr, out_arr)
     end
@@ -66,8 +66,8 @@ struct IRFFTPlan
     out_arr :: Array{Float64, 2}
 
     function IRFFTPlan(dim1, dim2)
-        in_arr = Array{Complex{Float64}, 2}(div(dim1, 2) + 1, dim2)
-        out_arr = Array{Float64, 2}(dim1, dim2)
+        in_arr = Array{Complex{Float64}, 2}(undef, div(dim1, 2) + 1, dim2)
+        out_arr = Array{Float64, 2}(undef, dim1, dim2)
         p = plan_irfft(in_arr, dim1, 1)
         new(p, in_arr, out_arr)
     end
@@ -75,7 +75,7 @@ end
 
 
 function execute_fft_plan!(p::Union{RFFTPlan, IRFFTPlan})
-    A_mul_B!(p.out_arr, p.plan, p.in_arr)
+    mul!(p.out_arr, p.plan, p.in_arr)
 end
 
 
@@ -230,6 +230,7 @@ end
 # sets to zero
 function lp_clear!(reps::LagrangeHalfCPolynomialArray)
     reps.coefsC .= 0
+    nothing
 end
 
 
@@ -240,6 +241,7 @@ function lp_mul!(
         b::LagrangeHalfCPolynomialArray)
 
     result.coefsC .= a.coefsC .* b.coefsC
+    nothing
 end
 
 
@@ -248,11 +250,13 @@ end
 # TorusPolynomial = 0
 function tp_clear!(result::TorusPolynomialArray)
     result.coefsT .= 0
+    nothing
 end
 
 # TorusPolynomial += TorusPolynomial
 function tp_add_to!(result::TorusPolynomialArray, poly2::TorusPolynomialArray)
     result.coefsT .+= poly2.coefsT
+    nothing
 end
 
 

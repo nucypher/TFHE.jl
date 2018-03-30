@@ -143,6 +143,8 @@ function tGswTorus32PolynomialDecompH(
 
     # do the decomposition
     @. result.coefs = ((sample_coefs + offset) >> decal(ps)) & maskMod - halfBg
+
+    nothing
 end
 
 

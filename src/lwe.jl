@@ -34,9 +34,9 @@ struct LweSampleArray{T, U, V}
 end
 
 LweSampleArray(params::LweParams, dims...) = LweSampleArray(
-    Array{Torus32}(params.n, dims...),
-    Array{Torus32}(dims...),
-    Array{Float64}(dims...))
+    Array{Torus32}(undef, params.n, dims...),
+    Array{Torus32}(undef, dims...),
+    Array{Float64}(undef, dims...))
 
 
 Base.size(arr::LweSampleArray, args...) = size(arr.b, args...)
@@ -47,8 +47,15 @@ Base.reshape(arr::LweSampleArray, dims...) = LweSampleArray(
     reshape(arr.current_variances, dims...))
 
 
+if Base.thisminor(VERSION) > v"0.6"
+    sum_first(x) = sum(x, dims=1)
+else
+    sum_first(x) = sum(x, 1)
+end
+
+
 function vec_mul_mat(b::Array{Int32, 1}, a::Union{Array{Int32}, SubArray{Int32}})
-    s = squeeze(sum(a .* b, 1), 1)
+    s = squeeze(sum_first(a .* b), 1)
     # TODO: sum() of an Int32 array produces an Int64 array.
     # Putting in this hack here for the time being.
     # This behavior may change in later Julia versions,
@@ -76,6 +83,7 @@ function lweSymEncrypt(
     result.a .= rand_uniform_torus32(rng, n, size(messages)...)
     result.b .+= vec_mul_mat(key.key, result.a)
     result.current_variances .= alpha^2
+    nothing
 end
 
 
@@ -93,6 +101,7 @@ function lweCopy(result::LweSampleArray, sample::LweSampleArray, params::LwePara
     result.a .= sample.a
     result.b .= sample.b
     result.current_variances .= sample.current_variances
+    nothing
 end
 
 
@@ -101,6 +110,7 @@ function lweNegate(result::LweSampleArray, sample::LweSampleArray, params::LwePa
     result.a .= -sample.a
     result.b .= -sample.b
     result.current_variances .= sample.current_variances
+    nothing
 end
 
 
@@ -109,6 +119,7 @@ function lweNoiselessTrivial(result::LweSampleArray, mus::Union{Array{Torus32}, 
     result.a .= 0
     result.b .= mus
     result.current_variances .= 0
+    nothing
 end
 
 
@@ -117,6 +128,7 @@ function lweAddTo(result::LweSampleArray, sample::LweSampleArray, params::LwePar
     result.a .+= sample.a
     result.b .+= sample.b
     result.current_variances .+= sample.current_variances
+    nothing
 end
 
 
@@ -125,6 +137,7 @@ function lweSubTo(result::LweSampleArray, sample::LweSampleArray, params::LwePar
     result.a .-= sample.a
     result.b .-= sample.b
     result.current_variances .+= sample.current_variances
+    nothing
 end
 
 
@@ -133,6 +146,7 @@ function lweAddMulTo(result::LweSampleArray, p::Int32, sample::LweSampleArray, p
     result.a .+= p * sample.a
     result.b .+= p * sample.b
     result.current_variances .+= p^2 .* sample.current_variances
+    nothing
 end
 
 
@@ -141,6 +155,7 @@ function lweSubMulTo(result::LweSampleArray, p::Int32, sample::LweSampleArray, p
     result.a .-= p * sample.a
     result.b .-= p * sample.b
     result.current_variances .+= p^2 .* sample.current_variances
+    nothing
 end
 
 
@@ -166,6 +181,8 @@ function lweSymEncryptWithExternalNoise(
     result.a[:,2:end,:,:] .= rand_uniform_torus32(rng, n, size(messages)...)
     result.b[2:end,:,:] .+= vec_mul_mat(key.key, result.a[:,2:end,:,:])
     result.current_variances[2:end,:,:] .= alpha^2
+
+    nothing
 end
 
 
@@ -249,14 +266,16 @@ function lweKeySwitchTranslate_fromArray(result::LweSampleArray,
     ai = reshape(ai, 1, n, :)
     aijs = @. ((ai + prec_offset) >> (32 - js * basebit)) & mask + 1
 
-    for i in 1:length(result)
+    @inbounds @simd for i in 1:length(result)
         for l in 1:n
             for j in 1:t
                 x = aijs[j,l,i]
                 if x != 1
-                    result.a[:,i] .-= ks.a[:,x,j,l]
-                    result.b[i] .-= ks.b[x,j,l]
-                    result.current_variances[i] .+= ks.current_variances[x,j,l]
+                    for q in 1:size(result.a, 1)
+                        result.a[q,i] -= ks.a[q,x,j,l]
+                    end
+                    result.b[i] -= ks.b[x,j,l]
+                    result.current_variances[i] += ks.current_variances[x,j,l]
                 end
             end
         end

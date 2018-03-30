@@ -1,5 +1,16 @@
 module TFHE
 
+using Compat
+
+if Base.thisminor(VERSION) > v"0.6"
+    using FFTW
+    using Random
+    using LinearAlgebra
+else
+    const mul! = A_mul_B!
+end
+
+
 include("numeric-functions.jl")
 
 include("polynomials.jl")

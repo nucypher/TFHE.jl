@@ -79,6 +79,8 @@ function tLweExtractLweSampleIndex(
     a_view[(index+2):N,:,:] .= .-x.a.coefsT[N:-1:(index+2), 1:k,:]
 
     result.b .= x.a.coefsT[index+1, k+1, :]
+
+    nothing
 end
 
 
@@ -113,6 +115,8 @@ function tLweSymEncryptZero(rng::AbstractRNG, result::TLweSampleArray, alpha::Fl
     end
 
     result.current_variances .= alpha^2
+
+    nothing
 end
 
 
@@ -122,6 +126,7 @@ end
 function tLweCopy(result::TLweSampleArray, sample::TLweSampleArray, params::TLweParams)
     result.a.coefsT .= sample.a.coefsT # TODO: use an appropriate method?
     result.current_variances .= sample.current_variances
+    nothing
 end
 
 
@@ -131,6 +136,7 @@ function tLweNoiselessTrivial(result::TLweSampleArray, mu::TorusPolynomialArray,
     tp_clear!(result.a)
     result.a.coefsT[:,result.k+1,:] .= mu.coefsT # TODO: wrap in a function?
     result.current_variances .= 0.
+    nothing
 end
 
 
@@ -139,6 +145,7 @@ function tLweAddTo(result::TLweSampleArray, sample::TLweSampleArray, params::TLw
     k = params.k
     tp_add_to!(result.a, sample.a)
     result.current_variances .+= sample.current_variances
+    nothing
 end
 
 
@@ -152,12 +159,14 @@ end
 function tLweToFFTConvert(result::TLweSampleFFTArray, source::TLweSampleArray, params::TLweParams)
     tp_ifft!(result.a, source.a)
     result.current_variances .= source.current_variances
+    nothing
 end
 
 # Computes the FFT of the coefficients of the TLWEfft sample
 function tLweFromFFTConvert(result::TLweSampleArray, source::TLweSampleFFTArray, params::TLweParams)
     tp_fft!(result.a, source.a)
     result.current_variances .= source.current_variances
+    nothing
 end
 
 # Arithmetic operations on TLwe samples
@@ -166,4 +175,5 @@ end
 function tLweFFTClear(result::TLweSampleFFTArray, params::TLweParams)
     lp_clear!(result.a)
     result.current_variances .= 0.
+    nothing
 end
