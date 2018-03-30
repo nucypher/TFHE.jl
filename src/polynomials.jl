@@ -45,13 +45,6 @@ Base.length(arr::LagrangeHalfCPolynomialArray) = prod(size(arr))
 Base.reshape(arr::LagrangeHalfCPolynomialArray, dims...) =
     LagrangeHalfCPolynomialArray(reshape(arr.coefsC, size(arr.coefsC, 1), dims...))
 
-Base.view(arr::IntPolynomialArray, ranges...) =
-    IntPolynomialArray(view(arr.coefs, 1:size(arr.coefs, 1), ranges...))
-Base.view(arr::TorusPolynomialArray, ranges...) =
-    TorusPolynomialArray(view(arr.coefsT, 1:size(arr.coefsT, 1), ranges...))
-Base.view(arr::LagrangeHalfCPolynomialArray, ranges...) =
-    LagrangeHalfCPolynomialArray(view(arr.coefsC, 1:size(arr.coefsC, 1), ranges...))
-
 
 struct RFFTPlan
     plan
@@ -255,11 +248,6 @@ end
 # TorusPolynomial = 0
 function tp_clear!(result::TorusPolynomialArray)
     result.coefsT .= 0
-end
-
-# TorusPolynomial = random
-function tp_uniform!(rng::AbstractRNG, result::TorusPolynomialArray)
-    result.coefsT .= rand_uniform_torus32(rng, size(result.coefsT)...)
 end
 
 # TorusPolynomial += TorusPolynomial

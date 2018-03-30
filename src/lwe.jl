@@ -40,16 +40,11 @@ LweSampleArray(params::LweParams, dims...) = LweSampleArray(
 
 
 Base.size(arr::LweSampleArray, args...) = size(arr.b, args...)
-Base.view(arr::LweSampleArray, ranges...) = LweSampleArray(
-    view(arr.a, 1:size(arr.a, 1), ranges...),
-    view(arr.b, ranges...),
-    view(arr.current_variances, ranges...))
 Base.length(arr::LweSampleArray) = length(arr.b)
 Base.reshape(arr::LweSampleArray, dims...) = LweSampleArray(
     reshape(arr.a, size(arr.a, 1), dims...),
     reshape(arr.b, dims...),
     reshape(arr.current_variances, dims...))
-Base.getindex(arr::LweSampleArray, ranges...) = view(arr, ranges...)
 
 
 function vec_mul_mat(b::Array{Int32, 1}, a::Union{Array{Int32}, SubArray{Int32}})
@@ -78,24 +73,6 @@ function lweSymEncrypt(
     n = key.params.n
 
     result.b .= rand_gaussian_torus32(rng, Int32(0), alpha, size(messages)...) + messages
-    result.a .= rand_uniform_torus32(rng, n, size(messages)...)
-    result.b .+= vec_mul_mat(key.key, result.a)
-    result.current_variances .= alpha^2
-end
-
-
-# This function encrypts a message by using key and a given noise value
-function lweSymEncryptWithExternalNoise(
-        rng::AbstractRNG,
-        result::LweSampleArray, messages::Array{Torus32}, noises::Array{Float64},
-        alpha::Float64, key::LweKey)
-
-    @assert size(result) == size(messages)
-    @assert size(result) == size(noises)
-
-    n = key.params.n
-
-    result.b .= messages .+ dtot32.(noises)
     result.a .= rand_uniform_torus32(rng, n, size(messages)...)
     result.b .+= vec_mul_mat(key.key, result.a)
     result.current_variances .= alpha^2
@@ -151,25 +128,6 @@ function lweSubTo(result::LweSampleArray, sample::LweSampleArray, params::LwePar
 end
 
 
-function lweSubAll(result::LweSampleArray, samples::LweSampleArray, params::LweParams)
-    #=
-    # When Julia is smart enough, can be replaced by:
-    for i in 1:length(samples)
-        result.a .-= samples.a[:,i]
-        result.b .-= samples.b[i]
-        result.current_variances .+= samples.current_variances[i]
-    end
-    =#
-    @inbounds @simd for i in 1:length(samples)
-        for j in 1:size(samples.a, 1)
-            result.a[j,i] -= samples.a[j,i]
-        end
-        result.b[i] -= samples.b[i]
-        result.current_variances[i] += samples.current_variances[i]
-    end
-end
-
-
 # result = result + p.sample
 function lweAddMulTo(result::LweSampleArray, p::Int32, sample::LweSampleArray, params::LweParams)
     result.a .+= p * sample.a
@@ -183,6 +141,31 @@ function lweSubMulTo(result::LweSampleArray, p::Int32, sample::LweSampleArray, p
     result.a .-= p * sample.a
     result.b .-= p * sample.b
     result.current_variances .+= p^2 .* sample.current_variances
+end
+
+
+# This function encrypts a message by using key and a given noise value
+function lweSymEncryptWithExternalNoise(
+        rng::AbstractRNG,
+        result::LweSampleArray, messages::Array{Torus32}, noises::Array{Float64},
+        alpha::Float64, key::LweKey)
+
+    #@assert size(result) == size(messages)
+    #@assert size(result) == size(noises)
+
+    # GPU: will be made into a kernel
+
+    # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
+    result.a[:,1,:,:] .= 0
+    result.b[1,:,:] .= 0
+    result.current_variances .= 0
+
+    n = key.params.n
+
+    result.b[2:end,:,:] .= messages .+ dtot32.(noises)
+    result.a[:,2:end,:,:] .= rand_uniform_torus32(rng, n, size(messages)...)
+    result.b[2:end,:,:] .+= vec_mul_mat(key.key, result.a[:,2:end,:,:])
+    result.current_variances[2:end,:,:] .= alpha^2
 end
 
 
@@ -207,6 +190,8 @@ struct LweKeySwitchKey
             n::Int, t::Int, basebit::Int,
             in_key::LweKey, out_key::LweKey)
 
+        # GPU: will be possibly made into a kernel including lweSymEncryptWithExternalNoise()
+
         out_params = out_key.params
 
         base = 1 << basebit
@@ -222,9 +207,6 @@ struct LweKeySwitchKey
 
         # generate the ks
 
-        # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
-        lweNoiselessTrivial(view(ks, 1, 1:t, 1:n), zeros(Torus32, t, n), out_key.params)
-
         # mess::Torus32 = (in_key.key[i] * Int32(h - 1)) * Int32(1 << (32 - j * basebit))
         hs = Torus32(2):Torus32(base)
         js = Torus32(1):Torus32(t)
@@ -235,31 +217,10 @@ struct LweKeySwitchKey
 
         messages = @. r_key * (r_hs - Torus32(1)) * (Torus32(1) << (32 - r_js * basebit))
 
-        lweSymEncryptWithExternalNoise(rng, view(ks, 2:base, 1:t, 1:n), messages, noises, alpha, out_key)
+        lweSymEncryptWithExternalNoise(rng, ks, messages, noises, alpha, out_key)
 
         new(n, t, basebit, base, out_params, ks)
     end
-end
-
-
-function take_filtered(src, ind, filter_func)
-    # src: array (N, dims...)
-    # indices: array (dims...) with elements in the range 1:N
-    # returns: an array (prod(dims)) where each element corresponds to
-    #          an element `ind[i,j,...]` with value != 1,
-    #          and contains `src[ind[i,j,...], i, j, ...]`
-    src_flat = reshape(src, length(src))
-    ind_flat = reshape(ind, length(ind))
-
-    ind_dim = size(src, 1)
-    outer_ind = 1:length(ind)
-
-    mask = filter_func.(ind_flat)
-    outer_ind_filtered = outer_ind[mask]
-    ind_flat_filtered = ind_flat[mask]
-
-    flat_coords = @. ind_dim * (outer_ind_filtered - 1) + ind_flat_filtered
-    src_flat[flat_coords]
 end
 
 
@@ -284,15 +245,21 @@ function lweKeySwitchTranslate_fromArray(result::LweSampleArray,
     prec_offset = 1 << (32 - (1 + basebit * t)) # precision
     mask = base - 1
 
-    # ai is of size n
     js = reshape(1:t, t, 1, 1)
     ai = reshape(ai, 1, n, :)
     aijs = @. ((ai + prec_offset) >> (32 - js * basebit)) & mask + 1
 
-    # TODO: batch over ciphertext bits too
     for i in 1:length(result)
-        sub_ks = take_filtered(ks, view(aijs, :, :, i), j -> j != 1)
-        lweSubAll(result[i], sub_ks, params)
+        for l in 1:n
+            for j in 1:t
+                x = aijs[j,l,i]
+                if x != 1
+                    result.a[:,i] .-= ks.a[:,x,j,l]
+                    result.b[i] .-= ks.b[x,j,l]
+                    result.current_variances[i] .+= ks.current_variances[x,j,l]
+                end
+            end
+        end
     end
 end
 

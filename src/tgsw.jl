@@ -83,8 +83,6 @@ struct TGswSampleFFTArray
 end
 
 
-Base.view(arr::TGswSampleFFTArray, ranges...) = TGswSampleFFTArray(
-    view(arr.samples, 1:arr.l, 1:(arr.k + 1), ranges...), arr.k, arr.l)
 Base.size(arr::TGswSampleFFTArray) = size(arr.samples)[3:end]
 
 

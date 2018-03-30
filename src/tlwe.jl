@@ -59,14 +59,6 @@ end
 Base.size(arr::TLweSampleArray, args...) = size(arr.current_variances, args...)
 Base.size(arr::TLweSampleFFTArray, args...) = size(arr.current_variances, args...)
 
-Base.view(arr::TLweSampleArray, ranges...) = TLweSampleArray(
-    view(arr.a, 1:(arr.k+1), ranges...),
-    view(arr.current_variances, ranges...),
-    arr.k)
-Base.view(arr::TLweSampleFFTArray, ranges...) = TLweSampleFFTArray(
-    view(arr.a, 1:(arr.k+1), ranges...),
-    view(arr.current_variances, ranges...),
-    arr.k)
 
 Base.reshape(arr::TLweSampleFFTArray, dims...) = TLweSampleFFTArray(
     reshape(arr.a, arr.k + 1, dims...),
@@ -104,14 +96,20 @@ function tLweSymEncryptZero(rng::AbstractRNG, result::TLweSampleArray, alpha::Fl
 
     result.a.coefsT[:,k+1,:,:,:] .= rand_gaussian_torus32(rng, Int32(0), alpha, N, size(result)...)
 
-    a_part = view(result.a, 1:k, :, :, :)
-    tp_uniform!(rng, a_part)
+    result.a.coefsT[:,1:k,:,:,:] .= rand_uniform_torus32(rng, N, k, size(result)...)
+
+    tmp1 = LagrangeHalfCPolynomialArray(N, size(key.key)...)
+    tmp2 = LagrangeHalfCPolynomialArray(N, k, size(result)...)
+    tmp3 = LagrangeHalfCPolynomialArray(N, k, size(result)...)
+    tmpr = TorusPolynomialArray(N, k, size(result)...)
+
+    ip_ifft!(tmp1, key.key)
+    tp_ifft!(tmp2, TorusPolynomialArray(result.a.coefsT[:, 1:k, :, :, :]))
+    lp_mul!(tmp3, tmp1, tmp2)
+    tp_fft!(tmpr, tmp3)
 
     for i in 1:k
-        tp_add_mul!(
-            view(result.a, k+1, :, :, :),
-            view(key.key, i),
-            view(result.a, i, :, :, :))
+        result.a.coefsT[:, k+1, :, :, :] .+= tmpr.coefsT[:, i, :, :, :]
     end
 
     result.current_variances .= alpha^2
