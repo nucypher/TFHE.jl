@@ -104,15 +104,14 @@ function tLweSymEncryptZero(rng::AbstractRNG, result::TLweSampleArray, alpha::Fl
 
     result.a.coefsT[:,k+1,:,:,:] .= rand_gaussian_torus32(rng, Int32(0), alpha, N, size(result)...)
 
-    a_part = view(result.a, 1:k,
-        1:size(result.a.coefsT,3), 1:size(result.a.coefsT,4), 1:size(result.a.coefsT,5))
+    a_part = view(result.a, 1:k, :, :, :)
     tp_uniform!(rng, a_part)
 
     for i in 1:k
         tp_add_mul!(
-            view(result.a, (k+1):(k+1), 1:size(result.a.coefsT,3), 1:size(result.a.coefsT,4), 1:size(result.a.coefsT,5)),
-            view(key.key, i:i),
-            view(result.a, i:i, 1:size(result.a.coefsT,3), 1:size(result.a.coefsT,4), 1:size(result.a.coefsT,5)))
+            view(result.a, k+1, :, :, :),
+            view(key.key, i),
+            view(result.a, i, :, :, :))
     end
 
     result.current_variances .= alpha^2
