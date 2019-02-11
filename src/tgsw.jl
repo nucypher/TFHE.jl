@@ -201,8 +201,6 @@ function tGswFFTExternMulToTLwe(
 
     tLweFFTClear(tmpa, tlwe_params)
 
-    N2 = div(N, 2)
-    ml = size(accum, 1)
     res = tmpa.a.coefsC
     a = decaFFT.coefsC
     b = gsw.samples.a.coefsC
