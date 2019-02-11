@@ -2,6 +2,7 @@ push!(LOAD_PATH, "../src")
 
 using TFHE
 using Jute
+using Random
 
 
 key_pairs = @global_fixture begin
@@ -17,11 +18,9 @@ end
 
     rng = MersenneTwister(123)
 
-    tfhe_key_pair(rng)
-
-    tic()
     secret_key, cloud_key = tfhe_key_pair(rng)
-    t = toq()
+
+    t = @elapsed tfhe_key_pair(rng)
 
     # On iMac
     reference_time = 0.46
@@ -61,11 +60,16 @@ end
     # Encryption
 
     tfhe_encrypt(rng, secret_key, bits1)
-    tic()
+
     ciphertext1 = tfhe_encrypt(rng, secret_key, bits1)
     ciphertext2 = tfhe_encrypt(rng, secret_key, bits2)
     ciphertext3 = tfhe_encrypt(rng, secret_key, bits3)
-    t = toq()
+
+    t = @elapsed begin
+        tfhe_encrypt(rng, secret_key, bits1)
+        tfhe_encrypt(rng, secret_key, bits2)
+        tfhe_encrypt(rng, secret_key, bits3)
+    end
 
     # On iMac
     reference_time_enc = 0.00035
@@ -79,9 +83,7 @@ end
 
     tfhe_gate_MUX!(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
 
-    tic()
-    tfhe_gate_MUX!(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
-    t = toq()
+    t = @elapsed tfhe_gate_MUX!(cloud_key, result, ciphertext1, ciphertext2, ciphertext3)
 
     # On iMac
     reference_time_process = 0.94
@@ -91,9 +93,10 @@ end
     # Decryption
 
     tfhe_decrypt(secret_key, result)
-    tic()
+
     answer_bits = tfhe_decrypt(secret_key, result)
-    t = toq()
+
+    t = @elapsed tfhe_decrypt(secret_key, result)
 
     # On iMac
     reference_time_dec = 9e-6

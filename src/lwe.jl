@@ -55,7 +55,7 @@ end
 
 
 function vec_mul_mat(b::Array{Int32, 1}, a::Union{Array{Int32}, SubArray{Int32}})
-    s = squeeze(sum_first(a .* b), 1)
+    s = dropdims(sum_first(a .* b); dims=1)
     # TODO: sum() of an Int32 array produces an Int64 array.
     # Putting in this hack here for the time being.
     # This behavior may change in later Julia versions,
