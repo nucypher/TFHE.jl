@@ -5,7 +5,7 @@ const Torus32 = Int32
 mutable struct IntPolynomial
     N :: Int32
     coefs :: Array{Int32, 1}
-    IntPolynomial(N::Int32) = new(N, Array{Int32, 1}(N))
+    IntPolynomial(N::Int32) = new(N, Array{Int32}(undef, N))
 end
 
 function new_IntPolynomial_array(nbelts::Int32, N::Int32)
@@ -17,7 +17,7 @@ end
 mutable struct TorusPolynomial
     N :: Int32
     coefsT :: Array{Torus32, 1}
-    TorusPolynomial(N::Int32) = new(N, Array{Torus32, 1}(N))
+    TorusPolynomial(N::Int32) = new(N, Array{Torus32}(undef, N))
 end
 
 
@@ -50,7 +50,7 @@ mutable struct LagrangeHalfCPolynomial
 
     function LagrangeHalfCPolynomial(N::Int32)
         #@assert N == 1024
-        new(Array{Complex{Float64}, 1}(div(N, 2)), FFTProc(N))
+        new(Array{Complex{Float64}}(undef, div(N, 2)), FFTProc(N))
     end
 end
 
@@ -60,7 +60,7 @@ function IntPolynomial_ifft(result::LagrangeHalfCPolynomial, p::IntPolynomial)
     a = p.coefs
     N = p.N
 
-    rev_in = Array{Float64, 1}(2*N)
+    rev_in = Array{Float64}(undef, 2*N)
     for i in 1:N
         rev_in[i] = a[i]/2.
         rev_in[N + i] = -rev_in[i]
@@ -83,7 +83,7 @@ function TorusPolynomial_ifft(result::LagrangeHalfCPolynomial, p::TorusPolynomia
     _2pm33::Float64 = 1. / Float64(Int64(1)<<33)
 
 
-    rev_in = Array{Float64, 1}(2*N)
+    rev_in = Array{Float64}(undef, 2*N)
     for i in 1:N
         rev_in[i] = a[i] * _2pm33
         rev_in[N + i] = -rev_in[i]
@@ -105,7 +105,7 @@ function TorusPolynomial_fft(result::TorusPolynomial, p::LagrangeHalfCPolynomial
     _2p32::Float64 = Float64(Int64(1) << 32)
     _1sN::Float64 = 1. / N
 
-    fw_in = Array{Complex{Float64}, 1}(N+1)
+    fw_in = Array{Complex{Float64}}(undef, N+1)
     for i in 0:(div(N, 2))
         fw_in[2*i+1] = 0
     end

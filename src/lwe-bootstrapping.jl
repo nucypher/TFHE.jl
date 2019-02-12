@@ -175,7 +175,7 @@ function tfhe_bootstrap_woKS_FFT(result::LweSample,
     n = in_params.n
 
     testvect = TorusPolynomial(N)
-    bara = Array{Int32, 1}(n)
+    bara = Array{Int32}(undef, n)
 
     # Modulus switching
     barb = modSwitchFromTorus32(x.b, Nx2)

@@ -20,7 +20,7 @@ struct LweKey
         k = tlwe_key.params.k
         @assert params.n == k*N
 
-        key = Array{Int32, 1}(params.n)
+        key = Array{Int32}(undef, params.n)
         for i in 0:(k-1)
             for j in 0:(N-1)
                 key[i*N+j+1] = tlwe_key.key[i+1].coefs[j+1]
@@ -37,7 +37,7 @@ mutable struct LweSample
     b :: Torus32
     current_variance :: Float64 # average noise of the sample
 
-    LweSample(params::LweParams) = new(Array{Torus32, 1}(params.n), 0, 0.)
+    LweSample(params::LweParams) = new(Array{Torus32}(undef, params.n), 0, 0.)
 end
 
 const TFHEEncryptedBit = LweSample
@@ -217,7 +217,7 @@ struct LweKeySwitchKey
         err::Float64 = 0
 
         # chose a random vector of gaussian noises
-        noise = Array{Float64, 1}(sizeks)
+        noise = Array{Float64}(undef, sizeks)
         for i in 0:(sizeks-1)
             noise[i+1] = rand_gaussian_float(rng, alpha)
             err += noise[i+1]

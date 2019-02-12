@@ -11,7 +11,7 @@ struct TGswParams
 
     function TGswParams(l::Int32, Bgbit::Int32, tlwe_params::TLweParams)
 
-        h = Array{Torus32, 1}(l)
+        h = Array{Torus32}(undef, l)
         for i in 0:(l-1)
             kk::Int32 = 32 - (i + 1) * Bgbit
             h[i+1] = 1 << kk # 1/(Bg^(i+1)) as a Torus32
@@ -160,7 +160,7 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomial, params::TGswParam
         res_p = result[p+1].coefs
         for j in 0:(N-1)
             temp1::UInt32 = (buf[j+1] >> decal) & maskMod
-            res_p[j+1] = temp1 - halfBg
+            res_p[j+1] = Int32(temp1) - halfBg
         end
     end
 

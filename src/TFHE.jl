@@ -1,4 +1,6 @@
 module TFHE
+using Random
+using FFTW
 
 include("numeric-functions.jl")
 

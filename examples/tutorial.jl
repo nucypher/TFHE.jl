@@ -1,7 +1,7 @@
 push!(LOAD_PATH, "../src")
 
 using TFHE
-
+using Random
 
 function encrypt()
 
