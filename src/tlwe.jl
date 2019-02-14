@@ -81,7 +81,11 @@ end
 
 
 function tLweExtractLweSampleIndex(
-        result::LweSample, x::TLweSample, index::Int32, params::LweParams, rparams::TLweParams)
+        x::TLweSample, index::Int32, rparams::TLweParams)
+
+    params = rparams.extracted_lweparams
+
+    result = LweSample(params)
 
     N = rparams.N
     k = rparams.k
@@ -96,11 +100,13 @@ function tLweExtractLweSampleIndex(
         end
         result.b = x.a[x.k+1].coefsT[index+1]
     end
+
+    result
 end
 
 
-function tLweExtractLweSample(result::LweSample, x::TLweSample, params::LweParams, rparams::TLweParams)
-    tLweExtractLweSampleIndex(result, x, Int32(0), params, rparams)
+function tLweExtractLweSample(x::TLweSample, rparams::TLweParams)
+    tLweExtractLweSampleIndex(x, Int32(0), rparams)
 end
 
 
@@ -124,29 +130,17 @@ end
 
 # Arithmetic operations on TLwe samples
 
-# result = sample
-function tLweCopy(result::TLweSample, sample::TLweSample, params::TLweParams)
-    k = params.k
-    N = params.N
-
-    for i in 0:k
-        for j in 0:(N-1)
-            result.a[i+1].coefsT[j+1] = sample.a[i+1].coefsT[j+1]
-        end
-    end
-
-    result.current_variance = sample.current_variance
-end
-
 
 # result = (0,mu)
-function tLweNoiselessTrivial(result::TLweSample, mu::TorusPolynomial, params::TLweParams)
+function tLweNoiselessTrivial(mu::TorusPolynomial, params::TLweParams)
+    result = TLweSample(params)
     k = params.k
     for i in 0:(k-1)
         torusPolynomialClear(result.a[i+1])
     end
     torusPolynomialCopy(result.a[result.k+1], mu)
     result.current_variance = 0.
+    result
 end
 
 

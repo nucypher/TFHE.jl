@@ -59,8 +59,11 @@ end
 
 
 function tfhe_MuxRotate_FFT(
-        result::TLweSample, accum::TLweSample, bki::TGswSampleFFT, barai::Int32,
+        accum::TLweSample, bki::TGswSampleFFT, barai::Int32,
         bk_params::TGswParams)
+
+    result = TLweSample(bk_params.tlwe_params)
+
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
     # temp = (X^barai-1)*ACC
     tLweMulByXaiMinusOne(result, barai, accum, bk_params.tlwe_params)
@@ -69,6 +72,8 @@ function tfhe_MuxRotate_FFT(
 
     # ACC += temp
     tLweAddTo(result, accum, bk_params.tlwe_params)
+
+    result
 end
 
 
@@ -85,29 +90,17 @@ function tfhe_blindRotate_FFT(accum::TLweSample,
                                  n::Int32,
                                  bk_params::TGswParams)
 
-    #TGswSampleFFT* temp = new_TGswSampleFFT(bk_params);
-    temp = TLweSample(bk_params.tlwe_params)
-    temp2 = temp
-    temp3 = accum
-
-    accum_in_temp3 = true
-
     for i in 0:(n-1)
 
         barai = bara[i+1]
         if barai == 0
-            continue #indeed, this is an easy case!
+            continue
         end
 
-        tfhe_MuxRotate_FFT(temp2, temp3, bkFFT[i+1], barai, bk_params)
-
-        temp2, temp3 = temp3, temp2
-        accum_in_temp3 = !accum_in_temp3
+        accum = tfhe_MuxRotate_FFT(accum, bkFFT[i+1], barai, bk_params)
     end
 
-    if !accum_in_temp3 # temp3 != accum
-        tLweCopy(accum, temp3, bk_params.tlwe_params)
-    end
+    accum
 end
 
 
@@ -120,7 +113,7 @@ end
  * @param bara An array of n coefficients between 0 and 2N-1
  * @param bk_params The parameters of bk
 =#
-function tfhe_blindRotateAndExtract_FFT(result::LweSample,
+function tfhe_blindRotateAndExtract_FFT(
                                            v::TorusPolynomial,
                                            bk::Array{TGswSampleFFT, 1},
                                            barb::Int32,
@@ -129,14 +122,12 @@ function tfhe_blindRotateAndExtract_FFT(result::LweSample,
                                            bk_params::TGswParams)
 
     accum_params = bk_params.tlwe_params
-    extract_params = accum_params.extracted_lweparams
+
     N = accum_params.N
     _2N = Int32(2) * N
 
     # Test polynomial
     testvectbis = TorusPolynomial(N)
-    # Accumulator
-    acc = TLweSample(accum_params)
 
     # testvector = X^{2N-barb}*v
     if barb != 0
@@ -145,13 +136,14 @@ function tfhe_blindRotateAndExtract_FFT(result::LweSample,
         torusPolynomialCopy(testvectbis, v)
     end
 
-    tLweNoiselessTrivial(acc, testvectbis, accum_params)
+    # Accumulator
+    acc = tLweNoiselessTrivial(testvectbis, accum_params)
 
     # Blind rotation
-    tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
+    acc = tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
 
     # Extraction
-    tLweExtractLweSample(result, acc, extract_params, accum_params)
+    tLweExtractLweSample(acc, accum_params)
 end
 
 
@@ -166,8 +158,6 @@ function tfhe_bootstrap_woKS_FFT(
                                     bk::LweBootstrappingKeyFFT,
                                     mu::Torus32,
                                     x::LweSample)
-
-    result = LweSample(bk.accum_params.extracted_lweparams)
 
     bk_params = bk.bk_params
     accum_params = bk.accum_params
@@ -191,9 +181,7 @@ function tfhe_bootstrap_woKS_FFT(
     end
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(result, testvect, bk.bkFFT, barb, bara, n, bk_params)
-
-    result
+    tfhe_blindRotateAndExtract_FFT(testvect, bk.bkFFT, barb, bara, n, bk_params)
 end
 
 
