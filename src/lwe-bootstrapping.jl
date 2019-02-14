@@ -162,10 +162,12 @@ end
  * @param mu The output message (if phase(x)>0)
  * @param x The input sample
 =#
-function tfhe_bootstrap_woKS_FFT(result::LweSample,
+function tfhe_bootstrap_woKS_FFT(
                                     bk::LweBootstrappingKeyFFT,
                                     mu::Torus32,
                                     x::LweSample)
+
+    result = LweSample(bk.accum_params.extracted_lweparams)
 
     bk_params = bk.bk_params
     accum_params = bk.accum_params
@@ -190,6 +192,8 @@ function tfhe_bootstrap_woKS_FFT(result::LweSample,
 
     # Bootstrapping rotation and extraction
     tfhe_blindRotateAndExtract_FFT(result, testvect, bk.bkFFT, barb, bara, n, bk_params)
+
+    result
 end
 
 
@@ -200,16 +204,13 @@ end
  * @param mu The output message (if phase(x)>0)
  * @param x The input sample
 =#
-function tfhe_bootstrap_FFT(result::LweSample,
+function tfhe_bootstrap_FFT(
                                bk::LweBootstrappingKeyFFT,
                                mu::Torus32,
                                x::LweSample)
 
-    u = LweSample(bk.accum_params.extracted_lweparams)
-
-    tfhe_bootstrap_woKS_FFT(u, bk, mu, x)
+    u = tfhe_bootstrap_woKS_FFT(bk, mu, x)
 
     # Key switching
-    lweKeySwitch(result, bk.ks, u)
-
+    lweKeySwitch(bk.ks, u)
 end

@@ -8,23 +8,21 @@
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_NAND!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_NAND(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, NandConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(NandConst, in_out_params)
+    temp_result -= ca
+    temp_result -= cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -33,23 +31,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_OR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_OR(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,1/8) + ca + cb
     OrConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, OrConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(OrConst, in_out_params)
+    temp_result += ca
+    temp_result += cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -58,23 +54,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_AND!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_AND(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,-1/8) + ca + cb
     AndConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(AndConst, in_out_params)
+    temp_result += ca
+    temp_result += cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -83,23 +77,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_XOR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_XOR(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,1/4) + 2*(ca + cb)
     XorConst = modSwitchToTorus32(1, 4)
-    lweNoiselessTrivial(temp_result, XorConst, in_out_params)
-    lweAddMulTo(temp_result, 2, ca, in_out_params)
-    lweAddMulTo(temp_result, 2, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(XorConst, in_out_params)
+    temp_result += ca * 2
+    temp_result += cb * 2
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -119,15 +111,13 @@ function tfhe_gate_XNOR(
 
     #compute: (0,-1/4) + 2*(-ca-cb)
     XnorConst = modSwitchToTorus32(-1, 4)
-    lweNoiselessTrivial(temp_result, XnorConst, in_out_params)
-    lweSubMulTo(temp_result, Int32(2), ca, in_out_params)
-    lweSubMulTo(temp_result, Int32(2), cb, in_out_params)
+    temp_result = lweNoiselessTrivial(XnorConst, in_out_params)
+    temp_result -= ca * 2
+    temp_result -= cb * 2
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
-
-    result
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -136,21 +126,10 @@ end
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_NOT!(bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit)
-    in_out_params = bk.params.in_out_params
-    lweNegate(result, ca, in_out_params)
+function tfhe_gate_NOT(bk::TFHECloudKey, ca::TFHEEncryptedBit)
+    -ca
 end
 
-
-#=
- * Homomorphic bootstrapped COPY gate (doesn't need to be bootstrapped)
- * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
- * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
-=#
-function tfhe_gate_COPY!(bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit)
-    in_out_params = bk.params.in_out_params
-    lweCopy(result, ca, in_out_params)
-end
 
 #=
  * Homomorphic Trivial Constant gate (doesn't need to be bootstrapped)
@@ -161,8 +140,7 @@ function tfhe_gate_CONSTANT(bk::TFHECloudKey, value::Bool)
     in_out_params = bk.params.in_out_params
     result = TFHEEncryptedBit(in_out_params)
     MU = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(result, value ? MU : -MU, in_out_params)
-    result
+    lweNoiselessTrivial(value ? MU : -MU, in_out_params)
 end
 
 
@@ -171,23 +149,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_NOR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_NOR(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,-1/8) - ca - cb
     NorConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, NorConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(NorConst, in_out_params)
+    temp_result -= ca
+    temp_result -= cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -196,23 +172,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_ANDNY!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_ANDNY(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,-1/8) - ca + cb
     AndNYConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndNYConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(AndNYConst, in_out_params)
+    temp_result -= ca
+    temp_result += cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -221,23 +195,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_ANDYN!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_ANDYN(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,-1/8) + ca - cb
     AndYNConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndYNConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(AndYNConst, in_out_params)
+    temp_result += ca
+    temp_result -= cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -246,23 +218,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_ORNY!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_ORNY(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,1/8) - ca + cb
     OrNYConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, OrNYConst, in_out_params)
-    lweSubTo(temp_result, ca, in_out_params)
-    lweAddTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(OrNYConst, in_out_params)
+    temp_result -= ca
+    temp_result += cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -271,23 +241,21 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_ORYN!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_ORYN(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
-    temp_result = TFHEEncryptedBit(in_out_params)
-
     #compute: (0,1/8) + ca - cb
     OrYNConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result, OrYNConst, in_out_params)
-    lweAddTo(temp_result, ca, in_out_params)
-    lweSubTo(temp_result, cb, in_out_params)
+    temp_result = lweNoiselessTrivial(OrYNConst, in_out_params)
+    temp_result += ca
+    temp_result -= cb
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
 end
 
 
@@ -304,36 +272,27 @@ function tfhe_gate_MUX(
     in_out_params = bk.params.in_out_params
     extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
 
-    result = TFHEEncryptedBit(in_out_params)
-    temp_result = TFHEEncryptedBit(in_out_params)
-    temp_result1 = TFHEEncryptedBit(extracted_params)
-    u1 = TFHEEncryptedBit(extracted_params)
-    u2 = TFHEEncryptedBit(extracted_params)
-
-
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = modSwitchToTorus32(-1, 8)
-    lweNoiselessTrivial(temp_result, AndConst, in_out_params)
-    lweAddTo(temp_result, a, in_out_params)
-    lweAddTo(temp_result, b, in_out_params)
+    temp_result = lweNoiselessTrivial(AndConst, in_out_params)
+    temp_result += a
+    temp_result += b
     # Bootstrap without KeySwitch
-    tfhe_bootstrap_woKS_FFT(u1, bk.bkFFT, MU, temp_result)
+    u1 = tfhe_bootstrap_woKS_FFT(bk.bkFFT, MU, temp_result)
 
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
-    lweNoiselessTrivial(temp_result, AndConst, in_out_params)
-    lweSubTo(temp_result, a, in_out_params)
-    lweAddTo(temp_result, c, in_out_params)
+    temp_result = lweNoiselessTrivial(AndConst, in_out_params)
+    temp_result -= a
+    temp_result += c
     # Bootstrap without KeySwitch
-    tfhe_bootstrap_woKS_FFT(u2, bk.bkFFT, MU, temp_result)
+    u2 = tfhe_bootstrap_woKS_FFT(bk.bkFFT, MU, temp_result)
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(temp_result1, MuxConst, extracted_params)
-    lweAddTo(temp_result1, u1, extracted_params)
-    lweAddTo(temp_result1, u2, extracted_params)
+    temp_result1 = lweNoiselessTrivial(MuxConst, extracted_params)
+    temp_result1 += u1
+    temp_result1 += u2
     # Key switching
-    lweKeySwitch(result, bk.bkFFT.ks, temp_result1)
-
-    result
+    lweKeySwitch(bk.bkFFT.ks, temp_result1)
 end

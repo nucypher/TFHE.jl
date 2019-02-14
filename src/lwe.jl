@@ -38,6 +38,7 @@ mutable struct LweSample
     current_variance :: Float64 # average noise of the sample
 
     LweSample(params::LweParams) = new(Array{Torus32}(undef, params.n), 0, 0.)
+    LweSample(a, b, cv) = new(a, b, cv)
 end
 
 const TFHEEncryptedBit = LweSample
@@ -96,88 +97,40 @@ end
 # Arithmetic operations on Lwe samples
 
 
-# result = sample
-function lweCopy(result::LweSample, sample::LweSample, params::LweParams)
-    n = params.n
-
-    for i in 0:(n-1)
-        result.a[i+1] = sample.a[i+1]
-    end
-    result.b = sample.b
-    result.current_variance = sample.current_variance
-end
-
-
 # result = -sample
-function lweNegate(result::LweSample, sample::LweSample, params::LweParams)
-    n = params.n
-
-    for i in 0:(n-1)
-        result.a[i+1] = -sample.a[i+1]
-    end
-    result.b = -sample.b
-    result.current_variance = sample.current_variance
+function Base.:-(sample::LweSample)
+    LweSample(-sample.a, -sample.b, sample.current_variance)
 end
 
 
 # result = (0,mu)
-function lweNoiselessTrivial(result::LweSample, mu::Torus32, params::LweParams)
-    n = params.n
-
-    for i in 0:(n-1)
-        result.a[i+1] = 0
-    end
-    result.b = mu
-    result.current_variance = 0.
+function lweNoiselessTrivial(mu::Torus32, params::LweParams)
+    LweSample(zeros(Torus32, params.n), mu, 0.)
 end
 
-# result = result + sample
-function lweAddTo(result::LweSample, sample::LweSample, params::LweParams)
-    n = params.n
 
-    for i in 0:(n-1)
-        result.a[i+1] += sample.a[i+1]
-    end
-    result.b += sample.b
-    result.current_variance += sample.current_variance
+# result = result + sample
+function Base.:+(result::LweSample, sample::LweSample)
+    LweSample(
+        result.a .+ sample.a, result.b + sample.b,
+        result.current_variance + sample.current_variance)
 end
 
 
 # result = result - sample
-function lweSubTo(result::LweSample, sample::LweSample, params::LweParams)
-    n = params.n
-    sa = sample.a
-    ra = result.a
-
-    for i in 0:(n-1)
-        ra[i+1] -= sa[i+1]
-    end
-
-    result.b -= sample.b
-    result.current_variance += sample.current_variance
+function Base.:-(result::LweSample, sample::LweSample)
+    LweSample(
+        result.a .- sample.a, result.b - sample.b,
+        result.current_variance + sample.current_variance)
 end
 
-# result = result + p.sample
-function lweAddMulTo(result::LweSample, p::Int32, sample::LweSample, params::LweParams)
-    n = params.n
 
-    for i in 0:(n-1)
-        result.a[i+1] += p*sample.a[i+1]
-    end
-    result.b += p*sample.b
-    result.current_variance += (p*p)*sample.current_variance
+function Base.:*(sample::LweSample, p::Integer)
+    tp = Torus32(p)
+    LweSample(sample.a .* tp, sample.b * tp, sample.current_variance * p^2)
 end
 
-# result = result - p.sample
-function lweSubMulTo(result::LweSample, p::Int32, sample::LweSample, params::LweParams)
-    n = params.n
-
-    for i in 0:(n-1)
-        result.a[i+1] -= p*sample.a[i+1]
-    end
-    result.b -= p*sample.b
-    result.current_variance += (p*p)*sample.current_variance
-end
+Base.:*(p::Integer, sample::LweSample) = sample * p
 
 
 struct LweKeySwitchKey
@@ -234,7 +187,7 @@ struct LweKeySwitchKey
             for j in 0:(t-1)
 
                 # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
-                lweNoiselessTrivial(ks[0+1,j+1,i+1], Torus32(0), out_key.params)
+                ks[0+1,j+1,i+1] = lweNoiselessTrivial(Torus32(0), out_key.params)
                 for h in 1:(base-1) # pas le terme en 0
                     mess::Torus32 = (in_key.key[i+1] * Int32(h)) * Int32(1 << (32 - (j + 1) * basebit))
                     lweSymEncryptWithExternalNoise(
@@ -275,20 +228,22 @@ function lweKeySwitchTranslate_fromArray(result::LweSample,
         for j in 0:(t-1)
             aij::UInt32 = (aibar >> (32 - (j + 1) * basebit)) & mask
             if aij != 0
-                lweSubTo(result, ks[aij+1,j+1,i+1], params)
+                result -= ks[aij+1,j+1,i+1]
             end
         end
     end
+
+    result
 end
 
 
 #sample=(a',b')
-function lweKeySwitch(result::LweSample, ks::LweKeySwitchKey, sample::LweSample)
+function lweKeySwitch(ks::LweKeySwitchKey, sample::LweSample)
     params = ks.out_params
     n = ks.n
     basebit = ks.basebit
     t = ks.t
 
-    lweNoiselessTrivial(result, sample.b, params)
+    result = lweNoiselessTrivial(sample.b, params)
     lweKeySwitchTranslate_fromArray(result, ks.ks, params, sample.a, n, t, basebit)
 end
