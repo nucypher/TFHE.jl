@@ -64,18 +64,20 @@ end
 
 
 # encrypts a boolean
-function tfhe_encrypt_bit!(rng::AbstractRNG, key::TFHESecretKey, result::TFHEEncryptedBit, message::Bool)
+function tfhe_encrypt_bit(rng::AbstractRNG, key::TFHESecretKey, message::Bool)
     _1s8::Torus32 = modSwitchToTorus32(1, 8)
     mu::Torus32 = message ? _1s8 : -_1s8
     alpha = key.params.in_out_params.alpha_min # TODO: specify noise
+    result = TFHEEncryptedBit(key.params)
     lweSymEncrypt(rng, result, mu, alpha, key.lwe_key)
+    result
 end
 
 
 # decrypts a boolean
-function tfhe_decrypt_bit!(key::TFHESecretKey, sample::TFHEEncryptedBit)
+function tfhe_decrypt_bit(key::TFHESecretKey, sample::TFHEEncryptedBit)
     mu = lwePhase(sample, key.lwe_key)
-    (mu > 0 ? Int32(1) : Int32(0))
+    mu > 0
 end
 
 TFHEEncryptedBit(params::TFHEParameters) = LweSample(params.in_out_params)

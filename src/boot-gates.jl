@@ -108,12 +108,13 @@ end
  * Takes in input 2 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_XNOR!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+function tfhe_gate_XNOR(
+        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
 
+    result = TFHEEncryptedBit(in_out_params)
     temp_result = TFHEEncryptedBit(in_out_params)
 
     #compute: (0,-1/4) + 2*(-ca-cb)
@@ -125,6 +126,8 @@ function tfhe_gate_XNOR!(
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
     tfhe_bootstrap_FFT(result, bk.bkFFT, MU, temp_result)
+
+    result
 end
 
 
@@ -154,10 +157,12 @@ end
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_CONSTANT!(bk::TFHECloudKey, result::TFHEEncryptedBit, value::Int32)
+function tfhe_gate_CONSTANT(bk::TFHECloudKey, value::Bool)
     in_out_params = bk.params.in_out_params
+    result = TFHEEncryptedBit(in_out_params)
     MU = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(result, value != 0 ? MU : -MU, in_out_params)
+    lweNoiselessTrivial(result, value ? MU : -MU, in_out_params)
+    result
 end
 
 
@@ -291,14 +296,15 @@ end
  * Takes in input 3 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_MUX!(
-        bk::TFHECloudKey, result::TFHEEncryptedBit,
+function tfhe_gate_MUX(
+        bk::TFHECloudKey,
         a::TFHEEncryptedBit, b::TFHEEncryptedBit, c::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
     in_out_params = bk.params.in_out_params
     extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
 
+    result = TFHEEncryptedBit(in_out_params)
     temp_result = TFHEEncryptedBit(in_out_params)
     temp_result1 = TFHEEncryptedBit(extracted_params)
     u1 = TFHEEncryptedBit(extracted_params)
@@ -328,4 +334,6 @@ function tfhe_gate_MUX!(
     lweAddTo(temp_result1, u2, extracted_params)
     # Key switching
     lweKeySwitch(result, bk.bkFFT.ks, temp_result1)
+
+    result
 end
