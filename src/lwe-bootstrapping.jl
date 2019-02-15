@@ -19,7 +19,7 @@ function lwe_bootstrapping_key(
     alpha = accum_params.alpha_min
     n = in_out_params.n
     for i in 0:(n-1)
-        tGswSymEncryptInt(rng, bk[i+1], kin[i+1], alpha, rgsw_key)
+        bk[i+1] = tGswSymEncryptInt(rng, kin[i+1], alpha, rgsw_key)
     end
 
     bk, ks
@@ -47,10 +47,7 @@ struct LweBootstrappingKeyFFT
         n = in_out_params.n
 
         # Bootstrapping Key FFT
-        bkFFT = [TGswSampleFFT(bk_params) for i in 1:n]
-        for i in 0:(n-1)
-            tGswToFFTConvert(bkFFT[i+1], bk[i+1], bk_params)
-        end
+        bkFFT = [tGswToFFTConvert(bk[i], bk_params) for i in 1:n]
 
         new(in_out_params, bk_params, accum_params, extract_params, bkFFT, ks)
     end
@@ -62,16 +59,15 @@ function tfhe_MuxRotate_FFT(
         accum::TLweSample, bki::TGswSampleFFT, barai::Int32,
         bk_params::TGswParams)
 
-    result = TLweSample(bk_params.tlwe_params)
-
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
     # temp = (X^barai-1)*ACC
-    tLweMulByXaiMinusOne(result, barai, accum, bk_params.tlwe_params)
+    result = tLweMulByXaiMinusOne(barai, accum, bk_params.tlwe_params)
+
     # temp *= BKi
-    tGswFFTExternMulToTLwe(result, bki, bk_params)
+    result = tGswFFTExternMulToTLwe(result, bki, bk_params)
 
     # ACC += temp
-    tLweAddTo(result, accum, bk_params.tlwe_params)
+    result += accum
 
     result
 end

@@ -17,13 +17,12 @@ end
 mutable struct TorusPolynomial
     N :: Int32
     coefsT :: Array{Torus32, 1}
-    TorusPolynomial(N::Int32) = new(N, Array{Torus32}(undef, N))
+    TorusPolynomial(N::Integer) = new(N, Array{Torus32}(undef, N))
+    TorusPolynomial(coeffs::Array{Torus32, 1}) = new(length(coeffs), coeffs)
 end
 
 
-function new_TorusPolynomial_array(nbelts::Int, N::Int32)
-    [TorusPolynomial(N) for i in 1:nbelts]
-end
+Base.:+(x::TorusPolynomial, y::TorusPolynomial) = TorusPolynomial(x.coefsT .+ y.coefsT)
 
 
 # J: Used as a mock for the FFT processor; will be removed during cleanup
@@ -33,7 +32,7 @@ struct FFTProc
     _2N :: Int32
     omegaxminus1 :: Array{Complex{Float64}, 1}
 
-    FFTProc(N::Int32) = new(N, N / 2, N * 2, [exp(im * x * pi / N) for x in 0:(N/2-1)])
+    FFTProc(N::Integer) = new(N, N / 2, N * 2, [exp(im * x * pi / N) for x in 0:(N/2-1)])
 end
 
 
@@ -52,7 +51,13 @@ mutable struct LagrangeHalfCPolynomial
         #@assert N == 1024
         new(Array{Complex{Float64}}(undef, div(N, 2)), FFTProc(N))
     end
+
+    LagrangeHalfCPolynomial(coeffs::Array{Complex{Float64}, 1}) =
+        new(coeffs, FFTProc(length(coeffs) * 2))
 end
+
+
+Base.broadcastable(x::LagrangeHalfCPolynomial) = Ref(x)
 
 
 function IntPolynomial_ifft(result::LagrangeHalfCPolynomial, p::IntPolynomial)
@@ -132,7 +137,7 @@ function torusPolynomialAddMulRFFT(result::TorusPolynomial, poly1::IntPolynomial
     tmpr = TorusPolynomial(N)
     IntPolynomial_ifft(tmp[1], poly1)
     TorusPolynomial_ifft(tmp[2], poly2)
-    LagrangeHalfCPolynomialMul(tmp[3], tmp[1], tmp[2])
+    tmp[3] = tmp[1] * tmp[2]
     TorusPolynomial_fft(tmpr, tmp[3])
     torusPolynomialAddTo(result, tmpr)
 end
@@ -151,36 +156,11 @@ function LagrangeHalfCPolynomialClear(reps::LagrangeHalfCPolynomial)
 end
 
 
-# termwise multiplication in Lagrange space */
-function LagrangeHalfCPolynomialMul(
-        result::LagrangeHalfCPolynomial,
-        a::LagrangeHalfCPolynomial,
-        b::LagrangeHalfCPolynomial)
+Base.:+(x::LagrangeHalfCPolynomial, y::LagrangeHalfCPolynomial) =
+    LagrangeHalfCPolynomial(x.coefsC .+ y.coefsC)
 
-    Ns2 = result.proc.Ns2
-    aa = a.coefsC
-    bb = b.coefsC
-    rr = result.coefsC
-    for i in 0:(Ns2-1)
-        rr[i+1] = aa[i+1]*bb[i+1]
-    end
-end
-
-
-# termwise multiplication and addTo in Lagrange space
-function LagrangeHalfCPolynomialAddMul(
-        accum::LagrangeHalfCPolynomial,
-        a::LagrangeHalfCPolynomial,
-        b::LagrangeHalfCPolynomial)
-
-    Ns2 = accum.proc.Ns2
-    aa = a.coefsC
-    bb = b.coefsC
-    rr = accum.coefsC
-    for i in 0:(Ns2-1)
-        rr[i+1] += aa[i+1]*bb[i+1]
-    end
-end
+Base.:*(x::LagrangeHalfCPolynomial, y::LagrangeHalfCPolynomial) =
+    LagrangeHalfCPolynomial(x.coefsC .* y.coefsC)
 
 
 # Torus polynomial functions
@@ -215,8 +195,9 @@ end
 
 
 # result = (X^ai-1) * source
-function torusPolynomialMulByXaiMinusOne(
-        result::TorusPolynomial, ai::Int32, source::TorusPolynomial)
+function torusPolynomialMulByXaiMinusOne(ai::Int32, source::TorusPolynomial)
+
+    result = TorusPolynomial(length(source.coefsT))
 
     N = source.N
     out = result.coefsT
@@ -241,6 +222,8 @@ function torusPolynomialMulByXaiMinusOne(
             out[i + 1] = -in_[i - aa + 1] - in_[i + 1]
         end
     end
+
+    result
 end
 
 

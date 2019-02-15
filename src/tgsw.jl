@@ -71,7 +71,7 @@ struct TGswSample
         k = params.tlwe_params.k
         l = params.l
         # tous les samples comme un vecteur ligne
-        all_sample = new_TLweSample_array((k + 1) * l, params.tlwe_params)
+        all_sample = [TLweSample(params.tlwe_params) for i in 1:((k + 1) * l)]
         # blocs horizontaux (l lignes) de la matrice TGsw
         bloc_sample = reshape(all_sample, Int64(l), k + 1)
         new(all_sample, bloc_sample, k, l)
@@ -109,29 +109,37 @@ function tGswAddMuIntH(result::TGswSample, message::Int32, params::TGswParams)
     l = params.l
     h = params.h
 
+    result = deepcopy(result)
+
     # compute result += H
     for bloc in 0:k
         for i in 0:(l-1)
             result.bloc_sample[i+1, bloc+1].a[bloc+1].coefsT[0+1] += message * h[i+1]
         end
     end
+
+    result
 end
 
 
 # Result = tGsw(0)
-function tGswEncryptZero(rng::AbstractRNG, result::TGswSample, alpha::Float64, key::TGswKey)
+function tGswEncryptZero(rng::AbstractRNG, alpha::Float64, key::TGswKey, params::TGswParams)
     rlkey = key.tlwe_key
     kpl = key.params.kpl
 
+    result = TGswSample(params)
+
     for p in 0:(kpl-1)
-        tLweSymEncryptZero(rng, result.all_sample[p+1], alpha, rlkey)
+        result.all_sample[p+1] = tLweSymEncryptZero(rng, alpha, rlkey, params.tlwe_params)
     end
+
+    result
 end
 
 
 # encrypts a constant message
-function tGswSymEncryptInt(rng::AbstractRNG, result::TGswSample, message::Int32, alpha::Float64, key::TGswKey)
-    tGswEncryptZero(rng, result, alpha, key)
+function tGswSymEncryptInt(rng::AbstractRNG, message::Int32, alpha::Float64, key::TGswKey)
+    result = tGswEncryptZero(rng, alpha, key, key.params)
     tGswAddMuIntH(result, message, key.params)
 end
 
@@ -175,12 +183,16 @@ end
 
 # For all the kpl TLWE samples composing the TGSW sample
 # It computes the inverse FFT of the coefficients of the TLWE sample
-function tGswToFFTConvert(result::TGswSampleFFT, source::TGswSample, params::TGswParams)
+function tGswToFFTConvert(source::TGswSample, params::TGswParams)
     kpl = params.kpl
 
+    result = TGswSampleFFT(params)
+
     for p in 0:(kpl-1)
-        tLweToFFTConvert(result.all_samples[p+1], source.all_sample[p+1], params.tlwe_params)
+        result.all_samples[p+1] = tLweToFFTConvert(source.all_sample[p+1], params.tlwe_params)
     end
+
+    result
 end
 
 
@@ -205,11 +217,11 @@ function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::T
         IntPolynomial_ifft(decaFFT[p+1], deca[p+1])
     end
 
-    tLweFFTClear(tmpa, tlwe_params)
+    tmpa = zero_tlwe_fft(tlwe_params)
 
     for p in 0:(kpl-1)
-        tLweFFTAddMulRTo(tmpa, decaFFT[p+1], gsw.all_samples[p+1], tlwe_params)
+        tmpa += gsw.all_samples[p+1] * decaFFT[p+1]
     end
 
-    tLweFromFFTConvert(accum, tmpa, tlwe_params)
+    tLweFromFFTConvert(tmpa, tlwe_params)
 end

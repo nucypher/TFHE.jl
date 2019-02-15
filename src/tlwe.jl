@@ -15,14 +15,6 @@ struct TLweKey
     params :: TLweParams # the parameters of the key
     key :: Array{IntPolynomial, 1} # the key (i.e k binary polynomials)
 
-    TLweKey(params::TLweParams) = new(params, new_IntPolynomial_array(params.k, params.N))
-end
-
-
-struct TLweKey
-    params :: TLweParams # the parameters of the key
-    key :: Array{IntPolynomial, 1} # the key (i.e k binary polynomials)
-
     function TLweKey(rng::AbstractRNG, params::TLweParams)
         N = params.N
         k = params.k
@@ -41,7 +33,6 @@ mutable struct TLweSample
     a :: Array{TorusPolynomial, 1} # array of length k+1: mask + right term
     #b :: TorusPolynomial # alias of a[k] to get the right term
     current_variance :: Float64 # avg variance of the sample
-    k :: Int32
 
     function TLweSample(params::TLweParams)
         # Small change here:
@@ -51,17 +42,14 @@ mutable struct TLweSample
         # or we can also do it in a single for loop
         #   &sample.a[0],...,&sample.a[k]
         k = params.k
-        a = new_TorusPolynomial_array(k + 1, params.N)
+        a = [TorusPolynomial(params.N) for i in 1:(k+1)]
         #b = a + k;
-        current_variance = 0;
+        current_variance = 0
 
-        new(a, 0, k)
+        new(a, 0)
     end
-end
 
-
-function new_TLweSample_array(nbelts::Int, params::TLweParams)
-    [TLweSample(params) for i in 1:nbelts]
+    TLweSample(a, cv) = new(a, cv)
 end
 
 
@@ -69,14 +57,15 @@ mutable struct TLweSampleFFT
     a :: Array{LagrangeHalfCPolynomial, 1} # array of length k+1: mask + right term
     #b :: LagrangeHalfCPolynomial # alias of a[k] to get the right term
     current_variance :: Float64 # avg variance of the sample
-    k :: Int32 # required during the destructor call...
 
     function TLweSampleFFT(params::TLweParams)
         # a is a table of k+1 polynomials, b is an alias for &a[k]
         k = params.k
         a = [LagrangeHalfCPolynomial(params.N) for i in 1:(k+1)]
-        new(a, 0., k)
+        new(a, 0.)
     end
+
+    TLweSampleFFT(a, cv) = new(a, cv)
 end
 
 
@@ -98,7 +87,7 @@ function tLweExtractLweSampleIndex(
         for j in (index+1):(N-1)
             result.a[i*N+j+1] = -x.a[i+1].coefsT[N+index-j+1]
         end
-        result.b = x.a[x.k+1].coefsT[index+1]
+        result.b = x.a[k+1].coefsT[index+1]
     end
 
     result
@@ -111,20 +100,23 @@ end
 
 
 # create an homogeneous tlwe sample
-function tLweSymEncryptZero(rng::AbstractRNG, result::TLweSample, alpha::Float64, key::TLweKey)
+function tLweSymEncryptZero(rng::AbstractRNG, alpha::Float64, key::TLweKey, params::TLweParams)
     N = key.params.N
     k = key.params.k
 
+    result = TLweSample(params)
+
     for j in 0:(N-1)
-        result.a[result.k+1].coefsT[j+1] = rand_gaussian_torus32(rng, Int32(0), alpha)
+        result.a[k+1].coefsT[j+1] = rand_gaussian_torus32(rng, Int32(0), alpha)
     end
 
     for i in 0:(k-1)
         torusPolynomialUniform(rng, result.a[i+1])
-        torusPolynomialAddMulR(result.a[result.k+1], key.key[i+1], result.a[i+1])
+        torusPolynomialAddMulR(result.a[k+1], key.key[i+1], result.a[i+1])
     end
 
     result.current_variance = alpha * alpha
+    result
 end
 
 
@@ -138,73 +130,75 @@ function tLweNoiselessTrivial(mu::TorusPolynomial, params::TLweParams)
     for i in 0:(k-1)
         torusPolynomialClear(result.a[i+1])
     end
-    torusPolynomialCopy(result.a[result.k+1], mu)
+    torusPolynomialCopy(result.a[k+1], mu)
     result.current_variance = 0.
     result
 end
 
 
 # result = result + sample
-function tLweAddTo(result::TLweSample, sample::TLweSample, params::TLweParams)
-    k = params.k
-
-    for i in 0:(k-1)
-        torusPolynomialAddTo(result.a[i+1], sample.a[i+1])
-    end
-    torusPolynomialAddTo(result.a[result.k+1], sample.a[sample.k+1])
-    result.current_variance += sample.current_variance
+function Base.:+(result::TLweSample, sample::TLweSample)
+    TLweSample(result.a .+ sample.a, result.current_variance + sample.current_variance)
 end
 
 
 # mult externe de X^ai-1 par bki
-function tLweMulByXaiMinusOne(result::TLweSample, ai::Int32, bk::TLweSample, params::TLweParams)
+function tLweMulByXaiMinusOne(ai::Int32, bk::TLweSample, params::TLweParams)
+    result = TLweSample(params)
     k = params.k
     for i in 0:k
-        torusPolynomialMulByXaiMinusOne(result.a[i+1], ai, bk.a[i+1])
+        result.a[i+1] = torusPolynomialMulByXaiMinusOne(ai, bk.a[i+1])
     end
+    result
 end
 
 
 # Computes the inverse FFT of the coefficients of the TLWE sample
-function tLweToFFTConvert(result::TLweSampleFFT, source::TLweSample, params::TLweParams)
+function tLweToFFTConvert(source::TLweSample, params::TLweParams)
+
+    result = TLweSampleFFT(params)
+
     k = params.k
 
     for i in 0:k
         TorusPolynomial_ifft(result.a[i+1], source.a[i+1])
     end
     result.current_variance = source.current_variance
+
+    result
 end
 
 # Computes the FFT of the coefficients of the TLWEfft sample
-function tLweFromFFTConvert(result::TLweSample, source::TLweSampleFFT, params::TLweParams)
+function tLweFromFFTConvert(source::TLweSampleFFT, params::TLweParams)
+
+    result = TLweSample(params)
+
     k = params.k
 
     for i in 0:k
         TorusPolynomial_fft(result.a[i+1], source.a[i+1])
     end
     result.current_variance = source.current_variance
+
+    result
 end
 
 # Arithmetic operations on TLwe samples
 
 # result = (0,0)
-function tLweFFTClear(result::TLweSampleFFT, params::TLweParams)
+function zero_tlwe_fft(params::TLweParams)
+    result = TLweSampleFFT(params)
     k = params.k
     for i in 0:k
         LagrangeHalfCPolynomialClear(result.a[i+1])
     end
     result.current_variance = 0.
+    result
 end
 
-# result = result + p*sample
-function tLweFFTAddMulRTo(
-        result::TLweSampleFFT, p::LagrangeHalfCPolynomial, sample::TLweSampleFFT, params::TLweParams)
 
-    k = params.k
+Base.:+(x::TLweSampleFFT, y::TLweSampleFFT) =
+    TLweSampleFFT(x.a .+ y.a, x.current_variance + y.current_variance) # TODO: how to compute the variance correctly?
 
-    for i in 0:k
-        LagrangeHalfCPolynomialAddMul(result.a[i+1], p, sample.a[i+1])
-    end
-    # result.current_variance += sample.current_variance;
-    # TODO: how to compute the variance correctly?
-end
+Base.:*(x::TLweSampleFFT, y::LagrangeHalfCPolynomial) =
+    TLweSampleFFT(x.a .* y, x.current_variance) # TODO: how to compute the variance correctly?
