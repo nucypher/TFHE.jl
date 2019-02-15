@@ -18,12 +18,7 @@ struct TLweKey
     function TLweKey(rng::AbstractRNG, params::TLweParams)
         N = params.N
         k = params.k
-        key = [IntPolynomial(N) for i in 1:k]
-        for i in 0:(k-1)
-            for j in 0:(N-1)
-                key[i+1].coefs[j+1] = rand_uniform_int32(rng)
-            end
-        end
+        key = [IntPolynomial(rand_uniform_int32(rng, N)) for i in 0:(k-1)]
         new(params, key)
     end
 end
@@ -42,7 +37,7 @@ mutable struct TLweSample
         # or we can also do it in a single for loop
         #   &sample.a[0],...,&sample.a[k]
         k = params.k
-        a = [TorusPolynomial(params.N) for i in 1:(k+1)]
+        a = [TorusPolynomial(zeros(Torus32, params.N)) for i in 1:(k+1)]
         #b = a + k;
         current_variance = 0
 
@@ -61,7 +56,7 @@ mutable struct TLweSampleFFT
     function TLweSampleFFT(params::TLweParams)
         # a is a table of k+1 polynomials, b is an alias for &a[k]
         k = params.k
-        a = [LagrangeHalfCPolynomial(params.N) for i in 1:(k+1)]
+        a = [LagrangeHalfCPolynomial(zeros(Complex{Float64}, params.N ÷ 2)) for i in 1:(k+1)]
         new(a, 0.)
     end
 
@@ -161,7 +156,7 @@ function tLweToFFTConvert(source::TLweSample, params::TLweParams)
     k = params.k
 
     for i in 0:k
-        TorusPolynomial_ifft(result.a[i+1], source.a[i+1])
+        result.a[i+1] = TorusPolynomial_ifft(source.a[i+1])
     end
     result.current_variance = source.current_variance
 
@@ -176,7 +171,7 @@ function tLweFromFFTConvert(source::TLweSampleFFT, params::TLweParams)
     k = params.k
 
     for i in 0:k
-        TorusPolynomial_fft(result.a[i+1], source.a[i+1])
+        result.a[i+1] = TorusPolynomial_fft(source.a[i+1])
     end
     result.current_variance = source.current_variance
 

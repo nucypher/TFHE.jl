@@ -6,10 +6,7 @@ mutable struct IntPolynomial
     N :: Int32
     coefs :: Array{Int32, 1}
     IntPolynomial(N::Int32) = new(N, Array{Int32}(undef, N))
-end
-
-function new_IntPolynomial_array(nbelts::Int32, N::Int32)
-    [IntPolynomial(N) for i in 1:nbelts]
+    IntPolynomial(coeffs::Array{Int32, 1}) = new(length(coeffs), coeffs)
 end
 
 
@@ -65,10 +62,12 @@ end
 Base.broadcastable(x::LagrangeHalfCPolynomial) = Ref(x)
 
 
-function IntPolynomial_ifft(result::LagrangeHalfCPolynomial, p::IntPolynomial)
-    res = result.coefsC
+function IntPolynomial_ifft(p::IntPolynomial)
     a = p.coefs
     N = p.N
+
+    result = LagrangeHalfCPolynomial(N)
+    res = result.coefsC
 
     rev_in = Array{Float64}(undef, 2*N)
     for i in 1:N
@@ -80,15 +79,19 @@ function IntPolynomial_ifft(result::LagrangeHalfCPolynomial, p::IntPolynomial)
 
     for i in 0:(div(N, 2)-1)
         res[i+1] = rev_out[2*i+1+1]
-        @assert abs(rev_out[2*i+1]) < 1e-20
+        #@assert abs(rev_out[2*i+1]) < 1e-20
     end
+
+    result
 end
 
 
-function TorusPolynomial_ifft(result::LagrangeHalfCPolynomial, p::TorusPolynomial)
-    res = result.coefsC
+function TorusPolynomial_ifft(p::TorusPolynomial)
     a = p.coefsT
     N = p.N
+
+    result = LagrangeHalfCPolynomial(N)
+    res = result.coefsC
 
     _2pm33::Float64 = 1. / Float64(Int64(1)<<33)
 
@@ -102,15 +105,19 @@ function TorusPolynomial_ifft(result::LagrangeHalfCPolynomial, p::TorusPolynomia
 
     for i in 0:(div(N, 2) - 1)
         res[i+1] = rev_out[2*i+1+1]
-        @assert abs(rev_out[2*i+1]) < 1e-20
+        #@assert abs(rev_out[2*i+1]) < 1e-20
     end
+
+    result
 end
 
 
-function TorusPolynomial_fft(result::TorusPolynomial, p::LagrangeHalfCPolynomial)
-    res = result.coefsT
+function TorusPolynomial_fft(p::LagrangeHalfCPolynomial)
     a = p.coefsC
-    N = result.N
+    N = p.proc.N
+
+    result = TorusPolynomial(N)
+    res = result.coefsT
 
     _2p32::Float64 = Float64(Int64(1) << 32)
     _1sN::Float64 = 1. / N
@@ -130,20 +137,20 @@ function TorusPolynomial_fft(result::TorusPolynomial, p::LagrangeHalfCPolynomial
         res[i+1] = trunc(Torus32, round(Int64, fw_out[i+1] * _1sN * _2p32) << 32 >> 32)
     end
 
-    for i in 0:(N-1)
-        @assert abs(fw_out[N+i+1] + fw_out[i+1]) < 1e-20
-    end
+    #for i in 0:(N-1)
+    #    @assert abs(fw_out[N+i+1] + fw_out[i+1]) < 1e-20
+    #end
+
+    result
 end
 
 
 function torusPolynomialAddMulRFFT(result::TorusPolynomial, poly1::IntPolynomial, poly2::TorusPolynomial)
     N = poly1.N
-    tmp = [LagrangeHalfCPolynomial(N) for i in 1:3]
-    tmpr = TorusPolynomial(N)
-    IntPolynomial_ifft(tmp[1], poly1)
-    TorusPolynomial_ifft(tmp[2], poly2)
-    tmp[3] = tmp[1] * tmp[2]
-    TorusPolynomial_fft(tmpr, tmp[3])
+    tmp1 = IntPolynomial_ifft(poly1)
+    tmp2 = TorusPolynomial_ifft(poly2)
+    tmp3 = tmp1 * tmp2
+    tmpr = TorusPolynomial_fft(tmp3)
     torusPolynomialAddTo(result, tmpr)
 end
 
@@ -234,9 +241,12 @@ end
 
 # result= X^{a}*source
 function torusPolynomialMulByXai(
-        result::TorusPolynomial, a::Int32, source::TorusPolynomial)
+        a::Int32, source::TorusPolynomial)
 
     N = source.N
+
+    result = TorusPolynomial(N)
+
     out = result.coefsT
     in_ = source.coefsT
 
@@ -259,4 +269,6 @@ function torusPolynomialMulByXai(
             out[i + 1] = -in_[i - aa + 1]
         end
     end
+
+    result
 end

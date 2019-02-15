@@ -119,14 +119,11 @@ function tfhe_blindRotateAndExtract_FFT(
     N = accum_params.N
     _2N = Int32(2) * N
 
-    # Test polynomial
-    testvectbis = TorusPolynomial(N)
-
     # testvector = X^{2N-barb}*v
     if barb != 0
-        torusPolynomialMulByXai(testvectbis, _2N - barb, v)
+        testvectbis = torusPolynomialMulByXai(_2N - barb, v)
     else
-        torusPolynomialCopy(testvectbis, v)
+        testvectbis = deepcopy(v)
     end
 
     # Accumulator
@@ -159,7 +156,6 @@ function tfhe_bootstrap_woKS_FFT(
     Nx2 = 2 * N
     n = in_params.n
 
-    testvect = TorusPolynomial(N)
     bara = Array{Int32}(undef, n)
 
     # Modulus switching
@@ -169,9 +165,7 @@ function tfhe_bootstrap_woKS_FFT(
     end
 
     # the initial testvec = [mu,mu,mu,...,mu]
-    for i in 0:(N-1)
-        testvect.coefsT[i+1] = mu
-    end
+    testvect = TorusPolynomial(repeat([mu], N))
 
     # Bootstrapping rotation and extraction
     tfhe_blindRotateAndExtract_FFT(testvect, bk.bkFFT, barb, bara, n, bk_params)
