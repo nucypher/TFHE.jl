@@ -23,6 +23,11 @@ end
 
 
 Base.:+(x::TorusPolynomial, y::TorusPolynomial) = TorusPolynomial(x.coefsT .+ y.coefsT)
+function Base.:+(x::TorusPolynomial, y::Torus32)
+    result = deepcopy(x)
+    result.coefsT[1] += y
+    result
+end
 
 
 # J: Used as a mock for the FFT processor; will be removed during cleanup

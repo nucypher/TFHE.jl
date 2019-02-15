@@ -14,13 +14,10 @@ function lwe_bootstrapping_key(
 
     ks = LweKeySwitchKey(rng, N, ks_t, ks_basebit, extracted_key, key_in)
 
-    bk = new_TGswSample_array(n, bk_params)
     kin = key_in.key
     alpha = accum_params.alpha_min
     n = in_out_params.n
-    for i in 0:(n-1)
-        bk[i+1] = tGswSymEncryptInt(rng, kin[i+1], alpha, rgsw_key)
-    end
+    bk = [tGswSymEncryptInt(rng, kin[i], alpha, rgsw_key) for i in 1:n]
 
     bk, ks
 end

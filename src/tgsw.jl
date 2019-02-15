@@ -59,47 +59,30 @@ end
 
 
 struct TGswSample
-    all_sample :: Array{TLweSample, 1} # TLweSample* all_sample; (k+1)l TLwe Sample
-    bloc_sample :: Array{TLweSample, 2} # accès optionnel aux différents blocs de taille l.
-    # double current_variance;
-    k :: Int32
-    l :: Int32
+    samples :: Array{TLweSample, 2}
 
-    # initialize the sample structure
-    # (equivalent of the C++ constructor)
     function TGswSample(params::TGswParams)
         k = params.tlwe_params.k
         l = params.l
-        # tous les samples comme un vecteur ligne
-        all_sample = [TLweSample(params.tlwe_params) for i in 1:((k + 1) * l)]
-        # blocs horizontaux (l lignes) de la matrice TGsw
-        bloc_sample = reshape(all_sample, Int64(l), k + 1)
-        new(all_sample, bloc_sample, k, l)
+        samples = [TLweSample(params.tlwe_params) for i in 1:((k + 1) * l)]
+        new(reshape(samples, Int64(l), k + 1))
     end
 
-end
-
-
-function new_TGswSample_array(nbelts::Int32, params::TGswParams)
-    [TGswSample(params) for i in 1:nbelts]
+    TGswSample(samples) = new(samples)
 end
 
 
 struct TGswSampleFFT
-    all_samples :: Array{TLweSampleFFT, 1} # TLweSample* all_sample; (k+1)l TLwe Sample
-    sample:: Array{TLweSampleFFT, 2} # accès optionnel aux différents blocs de taille l.
-    # double current_variance;
-    k :: Int32
-    l :: Int32
+    samples:: Array{TLweSampleFFT, 2}
 
-    # constructor content
     function TGswSampleFFT(params::TGswParams)
         k = params.tlwe_params.k
         l = params.l
-        all_samples = [TLweSampleFFT(params.tlwe_params) for i in 1:((k + 1) * l)]
-        sample = reshape(all_samples, Int64(l), k + 1)
-        new(all_samples, sample, k, l)
+        samples = [TLweSampleFFT(params.tlwe_params) for i in 1:((k + 1) * l)]
+        new(reshape(samples, Int64(l), k + 1))
     end
+
+    TGswSampleFFT(samples) = new(samples)
 end
 
 
@@ -114,7 +97,7 @@ function tGswAddMuIntH(result::TGswSample, message::Int32, params::TGswParams)
     # compute result += H
     for bloc in 0:k
         for i in 0:(l-1)
-            result.bloc_sample[i+1, bloc+1].a[bloc+1].coefsT[0+1] += message * h[i+1]
+            result.samples[i+1, bloc+1].a[bloc+1] += message * h[i+1]
         end
     end
 
@@ -130,7 +113,7 @@ function tGswEncryptZero(rng::AbstractRNG, alpha::Float64, key::TGswKey, params:
     result = TGswSample(params)
 
     for p in 0:(kpl-1)
-        result.all_sample[p+1] = tLweSymEncryptZero(rng, alpha, rlkey, params.tlwe_params)
+        result.samples[p+1] = tLweSymEncryptZero(rng, alpha, rlkey, params.tlwe_params)
     end
 
     result
@@ -189,7 +172,7 @@ function tGswToFFTConvert(source::TGswSample, params::TGswParams)
     result = TGswSampleFFT(params)
 
     for p in 0:(kpl-1)
-        result.all_samples[p+1] = tLweToFFTConvert(source.all_sample[p+1], params.tlwe_params)
+        result.samples[p+1] = tLweToFFTConvert(source.samples[p+1], params.tlwe_params)
     end
 
     result
@@ -220,7 +203,7 @@ function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::T
     tmpa = zero_tlwe_fft(tlwe_params)
 
     for p in 0:(kpl-1)
-        tmpa += gsw.all_samples[p+1] * decaFFT[p+1]
+        tmpa += gsw.samples[p+1] * decaFFT[p+1]
     end
 
     tLweFromFFTConvert(tmpa, tlwe_params)
