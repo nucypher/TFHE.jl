@@ -9,7 +9,7 @@ struct TGswParams
     h :: Array{Torus32, 1} # powers of Bgbit
     offset :: UInt32 # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
 
-    function TGswParams(l::Int32, Bgbit::Int32, tlwe_params::TLweParams)
+    function TGswParams(l::Int, Bgbit::Int, tlwe_params::TLweParams)
 
         h = Array{Torus32}(undef, l)
         for i in 0:(l-1)

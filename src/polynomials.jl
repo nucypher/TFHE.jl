@@ -140,12 +140,12 @@ end
 
 
 # result = (X^ai-1) * source
-function torusPolynomialMulByXaiMinusOne(ai::Int32, source::TorusPolynomial)
+function torusPolynomialMulByXaiMinusOne(ai::Integer, source::TorusPolynomial)
     shift_polynomial(source, ai) - source
 end
 
 
 # result= X^{a}*source
-function torusPolynomialMulByXai(a::Int32, source::TorusPolynomial)
+function torusPolynomialMulByXai(a::Integer, source::TorusPolynomial)
     shift_polynomial(source, a)
 end

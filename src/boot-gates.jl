@@ -9,10 +9,10 @@
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_NAND(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
@@ -22,7 +22,7 @@ function tfhe_gate_NAND(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -32,10 +32,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_OR(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,1/8) + ca + cb
     OrConst = modSwitchToTorus32(1, 8)
@@ -45,7 +45,7 @@ function tfhe_gate_OR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -55,10 +55,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_AND(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,-1/8) + ca + cb
     AndConst = modSwitchToTorus32(-1, 8)
@@ -68,7 +68,7 @@ function tfhe_gate_AND(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -78,10 +78,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_XOR(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,1/4) + 2*(ca + cb)
     XorConst = modSwitchToTorus32(1, 4)
@@ -91,7 +91,7 @@ function tfhe_gate_XOR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -101,10 +101,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_XNOR(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     result = TFHEEncryptedBit(in_out_params)
     temp_result = TFHEEncryptedBit(in_out_params)
@@ -117,7 +117,7 @@ function tfhe_gate_XNOR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -126,7 +126,7 @@ end
  * Takes in input 1 LWE samples (with message space [-1/8,1/8], noise<1/16)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_NOT(bk::TFHECloudKey, ca::TFHEEncryptedBit)
+function tfhe_gate_NOT(ck::TFHECloudKey, ca::TFHEEncryptedBit)
     -ca
 end
 
@@ -136,8 +136,8 @@ end
  * Takes a boolean value)
  * Outputs a LWE sample (with message space [-1/8,1/8], noise<1/16)
 =#
-function tfhe_gate_CONSTANT(bk::TFHECloudKey, value::Bool)
-    in_out_params = bk.params.in_out_params
+function tfhe_gate_CONSTANT(ck::TFHECloudKey, value::Bool)
+    in_out_params = ck.params.in_out_params
     result = TFHEEncryptedBit(in_out_params)
     MU = modSwitchToTorus32(1, 8)
     lweNoiselessTrivial(value ? MU : -MU, in_out_params)
@@ -150,10 +150,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_NOR(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,-1/8) - ca - cb
     NorConst = modSwitchToTorus32(-1, 8)
@@ -163,7 +163,7 @@ function tfhe_gate_NOR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -173,10 +173,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ANDNY(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,-1/8) - ca + cb
     AndNYConst = modSwitchToTorus32(-1, 8)
@@ -186,7 +186,7 @@ function tfhe_gate_ANDNY(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -196,10 +196,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ANDYN(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,-1/8) + ca - cb
     AndYNConst = modSwitchToTorus32(-1, 8)
@@ -209,7 +209,7 @@ function tfhe_gate_ANDYN(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -219,10 +219,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ORNY(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,1/8) - ca + cb
     OrNYConst = modSwitchToTorus32(1, 8)
@@ -232,7 +232,7 @@ function tfhe_gate_ORNY(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -242,10 +242,10 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_ORYN(
-        bk::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
+        ck::TFHECloudKey, ca::TFHEEncryptedBit, cb::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
+    in_out_params = ck.params.in_out_params
 
     #compute: (0,1/8) + ca - cb
     OrYNConst = modSwitchToTorus32(1, 8)
@@ -255,7 +255,7 @@ function tfhe_gate_ORYN(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(bk.bkFFT, MU, temp_result)
+    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -265,12 +265,12 @@ end
  * Outputs a LWE bootstrapped sample (with message space [-1/8,1/8], noise<1/16)
 =#
 function tfhe_gate_MUX(
-        bk::TFHECloudKey,
+        ck::TFHECloudKey,
         a::TFHEEncryptedBit, b::TFHEEncryptedBit, c::TFHEEncryptedBit)
 
     MU = modSwitchToTorus32(1, 8)
-    in_out_params = bk.params.in_out_params
-    extracted_params = bk.params.tgsw_params.tlwe_params.extracted_lweparams
+    in_out_params = ck.params.in_out_params
+    extracted_params = ck.params.tgsw_params.tlwe_params.extracted_lweparams
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = modSwitchToTorus32(-1, 8)
@@ -278,7 +278,7 @@ function tfhe_gate_MUX(
     temp_result += a
     temp_result += b
     # Bootstrap without KeySwitch
-    u1 = tfhe_bootstrap_woKS_FFT(bk.bkFFT, MU, temp_result)
+    u1 = tfhe_bootstrap_woKS_FFT(ck.bootstrap_key, MU, temp_result)
 
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
@@ -286,7 +286,7 @@ function tfhe_gate_MUX(
     temp_result -= a
     temp_result += c
     # Bootstrap without KeySwitch
-    u2 = tfhe_bootstrap_woKS_FFT(bk.bkFFT, MU, temp_result)
+    u2 = tfhe_bootstrap_woKS_FFT(ck.bootstrap_key, MU, temp_result)
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)
@@ -294,5 +294,5 @@ function tfhe_gate_MUX(
     temp_result1 += u1
     temp_result1 += u2
     # Key switching
-    lweKeySwitch(bk.bkFFT.ks, temp_result1)
+    lweKeySwitch(ck.keyswitch_key, temp_result1)
 end

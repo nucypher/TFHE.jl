@@ -1,54 +1,27 @@
-function lwe_bootstrapping_key(
-        rng::AbstractRNG, ks_t::Int32, ks_basebit::Int32, key_in::LweKey, rgsw_key::TGswKey)
-
-    bk_params = rgsw_key.params
-    in_out_params = key_in.params
-    accum_params = bk_params.tlwe_params
-    extract_params = accum_params.extracted_lweparams
-
-    n = in_out_params.n
-    N = extract_params.n
-
-    accum_key = rgsw_key.tlwe_key
-    extracted_key = LweKey(extract_params, accum_key)
-
-    ks = LweKeySwitchKey(rng, N, ks_t, ks_basebit, extracted_key, key_in)
-
-    kin = key_in.key
-    alpha = accum_params.alpha_min
-    n = in_out_params.n
-    bk = [tGswSymEncryptInt(rng, kin[i], alpha, rgsw_key) for i in 1:n]
-
-    bk, ks
-end
-
-
-struct LweBootstrappingKeyFFT
+struct BootstrapKey
     in_out_params :: LweParams # paramètre de l'input et de l'output. key: s
     bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
     accum_params :: TLweParams # params of the accum variable key: s"
     extract_params :: LweParams # params after extraction: key: s'
     bkFFT :: Array{TGswSampleFFT, 1} # the bootstrapping key (s->s")
-    ks :: LweKeySwitchKey # the keyswitch key (s'->s)
 
-    function LweBootstrappingKeyFFT(
-            rng::AbstractRNG, ks_t::Int32, ks_basebit::Int32, lwe_key::LweKey, tgsw_key::TGswKey)
+    function BootstrapKey(rng::AbstractRNG, lwe_key::LweKey, tgsw_key::TGswKey)
 
         in_out_params = lwe_key.params
         bk_params = tgsw_key.params
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
 
-        bk, ks = lwe_bootstrapping_key(rng, ks_t, ks_basebit, lwe_key, tgsw_key)
-
+        kin = lwe_key.key
+        alpha = accum_params.alpha_min
         n = in_out_params.n
+        bk = [tGswSymEncryptInt(rng, kin[i], alpha, tgsw_key) for i in 1:n]
 
         # Bootstrapping Key FFT
         bkFFT = [tGswToFFTConvert(bk[i], bk_params) for i in 1:n]
 
-        new(in_out_params, bk_params, accum_params, extract_params, bkFFT, ks)
+        new(in_out_params, bk_params, accum_params, extract_params, bkFFT)
     end
-
 end
 
 
@@ -80,7 +53,7 @@ end
 function tfhe_blindRotate_FFT(accum::TLweSample,
                                  bkFFT::Array{TGswSampleFFT, 1},
                                  bara::Array{Int32, 1},
-                                 n::Int32,
+                                 n::Int,
                                  bk_params::TGswParams)
 
     for i in 0:(n-1)
@@ -111,7 +84,7 @@ function tfhe_blindRotateAndExtract_FFT(
                                            bk::Array{TGswSampleFFT, 1},
                                            barb::Int32,
                                            bara::Array{Int32, 1},
-                                           n::Int32,
+                                           n::Int,
                                            bk_params::TGswParams)
 
     accum_params = bk_params.tlwe_params
@@ -144,10 +117,7 @@ end
  * @param mu The output message (if phase(x)>0)
  * @param x The input sample
 =#
-function tfhe_bootstrap_woKS_FFT(
-                                    bk::LweBootstrappingKeyFFT,
-                                    mu::Torus32,
-                                    x::LweSample)
+function tfhe_bootstrap_woKS_FFT(bk::BootstrapKey, mu::Torus32, x::LweSample)
 
     bk_params = bk.bk_params
     accum_params = bk.accum_params
@@ -180,12 +150,11 @@ end
  * @param x The input sample
 =#
 function tfhe_bootstrap_FFT(
-                               bk::LweBootstrappingKeyFFT,
+                               bk::BootstrapKey,
+                               ks::KeyswitchKey,
                                mu::Torus32,
                                x::LweSample)
 
     u = tfhe_bootstrap_woKS_FFT(bk, mu, x)
-
-    # Key switching
-    lweKeySwitch(bk.ks, u)
+    lweKeySwitch(ks, u)
 end

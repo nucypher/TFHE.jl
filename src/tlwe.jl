@@ -1,11 +1,11 @@
 struct TLweParams
-    N :: Int32 # a power of 2: degree of the polynomials
-    k :: Int32 # number of polynomials in the mask
+    N :: Int # a power of 2: degree of the polynomials
+    k :: Int # number of polynomials in the mask
     alpha_min :: Float64 # minimal noise s.t. the sample is secure
     alpha_max :: Float64 # maximal noise s.t. we can decrypt
     extracted_lweparams :: LweParams # lwe params if one extracts
 
-    function TLweParams(N::Int32, k::Int32, alpha_min::Float64, alpha_max::Float64)
+    function TLweParams(N::Int, k::Int, alpha_min::Float64, alpha_max::Float64)
         new(N, k, alpha_min, alpha_max, LweParams(N * k, alpha_min, alpha_max))
     end
 end
@@ -138,7 +138,7 @@ end
 
 
 # mult externe de X^ai-1 par bki
-function tLweMulByXaiMinusOne(ai::Int32, bk::TLweSample, params::TLweParams)
+function tLweMulByXaiMinusOne(ai::Integer, bk::TLweSample, params::TLweParams)
     result = TLweSample(params)
     k = params.k
     for i in 0:k

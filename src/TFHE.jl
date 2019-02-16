@@ -14,6 +14,7 @@ include("tlwe.jl")
 
 include("tgsw.jl")
 
+include("keyswitch.jl")
 include("lwe-bootstrapping.jl")
 
 include("keys.jl")
