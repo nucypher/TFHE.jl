@@ -169,7 +169,7 @@ function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::T
     N = tlwe_params.N
 
     deca = vcat([tGswTorus32PolynomialDecompH(accum.a[i+1], params) for i in 0:k]...)
-    decaFFT = IntPolynomial_ifft.(deca)
+    decaFFT = forward_transform.(deca)
 
     tmpa = zero_tlwe_fft(tlwe_params)
     for p in 0:(kpl-1)

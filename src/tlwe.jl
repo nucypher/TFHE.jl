@@ -156,7 +156,7 @@ function tLweToFFTConvert(source::TLweSample, params::TLweParams)
     k = params.k
 
     for i in 0:k
-        result.a[i+1] = IntPolynomial_ifft(source.a[i+1])
+        result.a[i+1] = forward_transform(source.a[i+1])
     end
     result.current_variance = source.current_variance
 
@@ -171,7 +171,7 @@ function tLweFromFFTConvert(source::TLweSampleFFT, params::TLweParams)
     k = params.k
 
     for i in 0:k
-        result.a[i+1] = TorusPolynomial_fft(source.a[i+1])
+        result.a[i+1] = inverse_transform(source.a[i+1])
     end
     result.current_variance = source.current_variance
 

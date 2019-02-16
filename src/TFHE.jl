@@ -2,6 +2,7 @@ module TFHE
 using Random
 using FFTW
 using DarkIntegers
+using LinearAlgebra
 
 include("numeric-functions.jl")
 
