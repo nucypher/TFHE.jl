@@ -18,7 +18,7 @@ struct TLweKey
     function TLweKey(rng::AbstractRNG, params::TLweParams)
         N = params.N
         k = params.k
-        key = [IntPolynomial(rand_uniform_int32(rng, N)) for i in 0:(k-1)]
+        key = [int_polynomial(rand_uniform_int32(rng, N)) for i in 0:(k-1)]
         new(params, key)
     end
 end
@@ -37,7 +37,7 @@ mutable struct TLweSample
         # or we can also do it in a single for loop
         #   &sample.a[0],...,&sample.a[k]
         k = params.k
-        a = [TorusPolynomial(zeros(Torus32, params.N)) for i in 1:(k+1)]
+        a = [torus_polynomial(zeros(Torus32, params.N)) for i in 1:(k+1)]
         #b = a + k;
         current_variance = 0
 
@@ -77,12 +77,12 @@ function tLweExtractLweSampleIndex(
 
     for i in 0:(k-1)
         for j in 0:index
-            result.a[i*N+j+1] = x.a[i+1].coefsT[index-j+1]
+            result.a[i*N+j+1] = x.a[i+1].coeffs[index-j+1]
         end
         for j in (index+1):(N-1)
-            result.a[i*N+j+1] = -x.a[i+1].coefsT[N+index-j+1]
+            result.a[i*N+j+1] = -x.a[i+1].coeffs[N+index-j+1]
         end
-        result.b = x.a[k+1].coefsT[index+1]
+        result.b = x.a[k+1].coeffs[index+1]
     end
 
     result
@@ -102,12 +102,12 @@ function tLweSymEncryptZero(rng::AbstractRNG, alpha::Float64, key::TLweKey, para
     result = TLweSample(params)
 
     for j in 0:(N-1)
-        result.a[k+1].coefsT[j+1] = rand_gaussian_torus32(rng, Int32(0), alpha)
+        result.a[k+1].coeffs[j+1] = rand_gaussian_torus32(rng, Int32(0), alpha)
     end
 
     for i in 0:(k-1)
-        torusPolynomialUniform(rng, result.a[i+1])
-        torusPolynomialAddMulR(result.a[k+1], key.key[i+1], result.a[i+1])
+        result.a[i+1] = torusPolynomialUniform(rng, N)
+        result.a[k+1] += key.key[i+1] * result.a[i+1]
     end
 
     result.current_variance = alpha * alpha
@@ -125,7 +125,7 @@ function tLweNoiselessTrivial(mu::TorusPolynomial, params::TLweParams)
     for i in 0:(k-1)
         torusPolynomialClear(result.a[i+1])
     end
-    torusPolynomialCopy(result.a[k+1], mu)
+    result.a[k+1] = deepcopy(mu)
     result.current_variance = 0.
     result
 end
@@ -156,7 +156,7 @@ function tLweToFFTConvert(source::TLweSample, params::TLweParams)
     k = params.k
 
     for i in 0:k
-        result.a[i+1] = TorusPolynomial_ifft(source.a[i+1])
+        result.a[i+1] = IntPolynomial_ifft(source.a[i+1])
     end
     result.current_variance = source.current_variance
 

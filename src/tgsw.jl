@@ -132,13 +132,13 @@ function tGswTorus32PolynomialDecompH(sample::TorusPolynomial, params::TGswParam
     N = params.tlwe_params.N
     l = params.l
     Bgbit = params.Bgbit
-    buf = sample.coefsT
+    buf = sample.coeffs
 
     maskMod = params.maskMod
     halfBg = params.halfBg
     offset = params.offset
 
-    [IntPolynomial(
+    [int_polynomial(
         (((buf .+ signed(offset)) .>> Int32((32 - (p + 1) * Bgbit))) .& Int32(maskMod)) .- halfBg)
         for p in 0:(l-1)
     ]

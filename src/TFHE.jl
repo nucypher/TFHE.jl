@@ -1,6 +1,7 @@
 module TFHE
 using Random
 using FFTW
+using DarkIntegers
 
 include("numeric-functions.jl")
 

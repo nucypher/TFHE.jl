@@ -165,7 +165,7 @@ function tfhe_bootstrap_woKS_FFT(
     end
 
     # the initial testvec = [mu,mu,mu,...,mu]
-    testvect = TorusPolynomial(repeat([mu], N))
+    testvect = torus_polynomial(repeat([mu], N))
 
     # Bootstrapping rotation and extraction
     tfhe_blindRotateAndExtract_FFT(testvect, bk.bkFFT, barb, bara, n, bk_params)

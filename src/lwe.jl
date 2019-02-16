@@ -23,7 +23,7 @@ struct LweKey
         key = Array{Int32}(undef, params.n)
         for i in 0:(k-1)
             for j in 0:(N-1)
-                key[i*N+j+1] = tlwe_key.key[i+1].coefs[j+1]
+                key[i*N+j+1] = tlwe_key.key[i+1].coeffs[j+1]
             end
         end
 

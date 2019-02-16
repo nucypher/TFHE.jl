@@ -6,8 +6,8 @@ function rand_uniform_int32(rng::AbstractRNG, dims...)
 end
 
 
-function rand_uniform_torus32(rng::AbstractRNG)
-    rand(rng, Torus32)
+function rand_uniform_torus32(rng::AbstractRNG, dims...)
+    rand(rng, Torus32, dims...)
 end
 
 
