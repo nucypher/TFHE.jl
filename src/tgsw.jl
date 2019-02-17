@@ -1,12 +1,9 @@
 struct TGswParams
-    l :: Int32 # decomp length
-    Bgbit :: Int32 # log_2(Bg)
-    Bg :: Int32 # decomposition base (must be a power of 2)
-    halfBg :: Int32 # Bg/2
-    maskMod :: UInt32 # Bg-1
+    decomp_length :: Int32 # decomposition length
+    log2_base :: Int32 # log2(decomposition base)
     tlwe_params :: TLweParams # Params of each row
-    kpl :: Int32 # number of rows = (k+1)*l
-    h :: Array{Torus32, 1} # powers of Bgbit
+
+    base_powers :: Array{Torus32, 1} # powers of Bgbit
     offset :: UInt32 # offset = Bg/2 * (2^(32-Bgbit) + 2^(32-2*Bgbit) + ... + 2^(32-l*Bgbit))
 
     function TGswParams(l::Int, Bgbit::Int, tlwe_params::TLweParams)
@@ -30,11 +27,7 @@ struct TGswParams
         new(
             l,
             Bgbit,
-            Bg,
-            halfBg,
-            Bg - 1,
             tlwe_params,
-            convert(Int32, (tlwe_params.mask_size + 1) * l),
             h,
             offset,
             )
@@ -63,7 +56,7 @@ struct TGswSample
 
     function TGswSample(params::TGswParams)
         mask_size = params.tlwe_params.mask_size
-        l = params.l
+        l = params.decomp_length
         samples = [TLweSample(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
         new(reshape(samples, Int64(l), mask_size + 1))
     end
@@ -77,7 +70,7 @@ struct TGswSampleFFT
 
     function TGswSampleFFT(params::TGswParams)
         mask_size = params.tlwe_params.mask_size
-        l = params.l
+        l = params.decomp_length
         samples = [TLweSampleFFT(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
         new(reshape(samples, Int64(l), mask_size + 1))
     end
@@ -89,8 +82,8 @@ end
 # Result += mu*H, mu integer
 function tGswAddMuIntH(result::TGswSample, message::Int32, params::TGswParams)
     mask_size = params.tlwe_params.mask_size
-    l = params.l
-    h = params.h
+    l = params.decomp_length
+    h = params.base_powers
 
     result = deepcopy(result)
 
@@ -108,12 +101,11 @@ end
 # Result = tGsw(0)
 function tGswEncryptZero(rng::AbstractRNG, alpha::Float64, key::TGswKey, params::TGswParams)
     rlkey = key.tlwe_key
-    kpl = key.params.kpl
 
     result = TGswSample(params)
 
-    for p in 0:(kpl-1)
-        result.samples[p+1] = tLweSymEncryptZero(rng, alpha, rlkey, params.tlwe_params)
+    for p in 1:length(result.samples)
+        result.samples[p] = tLweSymEncryptZero(rng, alpha, rlkey, params.tlwe_params)
     end
 
     result
@@ -129,12 +121,12 @@ end
 
 function tGswTorus32PolynomialDecompH(sample::TorusPolynomial, params::TGswParams)
 
-    l = params.l
-    Bgbit = params.Bgbit
+    l = params.decomp_length
+    Bgbit = params.log2_base
     buf = sample.coeffs
 
-    maskMod = params.maskMod
-    halfBg = params.halfBg
+    maskMod = 2^params.log2_base - 1
+    halfBg = 2^(params.log2_base - 1)
     offset = params.offset
 
     [int_polynomial(
@@ -147,12 +139,11 @@ end
 # For all the kpl TLWE samples composing the TGSW sample
 # It computes the inverse FFT of the coefficients of the TLWE sample
 function tGswToFFTConvert(source::TGswSample, params::TGswParams)
-    kpl = params.kpl
 
     result = TGswSampleFFT(params)
 
-    for p in 0:(kpl-1)
-        result.samples[p+1] = tLweToFFTConvert(source.samples[p+1], params.tlwe_params)
+    for p in 1:length(result.samples)
+        result.samples[p] = tLweToFFTConvert(source.samples[p], params.tlwe_params)
     end
 
     result
@@ -163,15 +154,14 @@ end
 function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::TGswParams)
     tlwe_params = params.tlwe_params
     mask_size = tlwe_params.mask_size
-    l = params.l
-    kpl = params.kpl
+    l = params.decomp_length
 
     deca = vcat([tGswTorus32PolynomialDecompH(accum.a[i+1], params) for i in 0:mask_size]...)
     decaFFT = forward_transform.(deca)
 
     tmpa = zero_tlwe_fft(tlwe_params)
-    for p in 0:(kpl-1)
-        tmpa += gsw.samples[p+1] * decaFFT[p+1]
+    for p in 1:length(gsw.samples)
+        tmpa += gsw.samples[p] * decaFFT[p]
     end
 
     tLweFromFFTConvert(tmpa, tlwe_params)
