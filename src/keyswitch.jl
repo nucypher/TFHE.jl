@@ -55,11 +55,11 @@ struct KeyswitchKey
             for j in 0:(t-1)
 
                 # term h=0 as trivial encryption of 0 (it will not be used in the KeySwitching)
-                ks[0+1,j+1,i+1] = lweNoiselessTrivial(Torus32(0), out_key.params)
+                ks[0+1,j+1,i+1] = lwe_noiseless_trivial(Torus32(0), out_key.params)
                 for h in 1:(base-1) # pas le terme en 0
                     mess::Torus32 = (in_key.key[i+1] * Int32(h)) * Int32(1 << (32 - (j + 1) * basebit))
-                    lweSymEncryptWithExternalNoise(
-                        rng, ks[h+1,j+1,i+1], mess, noise[index+1], alpha, out_key)
+                    ks[h+1,j+1,i+1] = lwe_encrypt(
+                        rng, mess, noise[index+1], alpha, out_key)
                     index += 1
                 end
             end
@@ -113,6 +113,6 @@ function lweKeySwitch(ks::KeyswitchKey, sample::LweSample)
     basebit = ks.log2_base
     t = ks.decomp_length
 
-    result = lweNoiselessTrivial(sample.b, params)
+    result = lwe_noiseless_trivial(sample.b, params)
     lweKeySwitchTranslate_fromArray(result, ks.key, params, sample.a, n, t, basebit)
 end

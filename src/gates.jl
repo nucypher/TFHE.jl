@@ -16,7 +16,7 @@ function tfhe_gate_NAND(
 
     #compute: (0,1/8) - ca - cb
     NandConst = modSwitchToTorus32(1, 8)
-    temp_result = lweNoiselessTrivial(NandConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(NandConst, in_out_params)
     temp_result -= ca
     temp_result -= cb
 
@@ -39,7 +39,7 @@ function tfhe_gate_OR(
 
     #compute: (0,1/8) + ca + cb
     OrConst = modSwitchToTorus32(1, 8)
-    temp_result = lweNoiselessTrivial(OrConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(OrConst, in_out_params)
     temp_result += ca
     temp_result += cb
 
@@ -62,7 +62,7 @@ function tfhe_gate_AND(
 
     #compute: (0,-1/8) + ca + cb
     AndConst = modSwitchToTorus32(-1, 8)
-    temp_result = lweNoiselessTrivial(AndConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(AndConst, in_out_params)
     temp_result += ca
     temp_result += cb
 
@@ -85,7 +85,7 @@ function tfhe_gate_XOR(
 
     #compute: (0,1/4) + 2*(ca + cb)
     XorConst = modSwitchToTorus32(1, 4)
-    temp_result = lweNoiselessTrivial(XorConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(XorConst, in_out_params)
     temp_result += ca * 2
     temp_result += cb * 2
 
@@ -111,7 +111,7 @@ function tfhe_gate_XNOR(
 
     #compute: (0,-1/4) + 2*(-ca-cb)
     XnorConst = modSwitchToTorus32(-1, 4)
-    temp_result = lweNoiselessTrivial(XnorConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(XnorConst, in_out_params)
     temp_result -= ca * 2
     temp_result -= cb * 2
 
@@ -140,7 +140,7 @@ function tfhe_gate_CONSTANT(ck::TFHECloudKey, value::Bool)
     in_out_params = ck.params.in_out_params
     result = TFHEEncryptedBit(in_out_params)
     MU = modSwitchToTorus32(1, 8)
-    lweNoiselessTrivial(value ? MU : -MU, in_out_params)
+    lwe_noiseless_trivial(value ? MU : -MU, in_out_params)
 end
 
 
@@ -157,7 +157,7 @@ function tfhe_gate_NOR(
 
     #compute: (0,-1/8) - ca - cb
     NorConst = modSwitchToTorus32(-1, 8)
-    temp_result = lweNoiselessTrivial(NorConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(NorConst, in_out_params)
     temp_result -= ca
     temp_result -= cb
 
@@ -180,7 +180,7 @@ function tfhe_gate_ANDNY(
 
     #compute: (0,-1/8) - ca + cb
     AndNYConst = modSwitchToTorus32(-1, 8)
-    temp_result = lweNoiselessTrivial(AndNYConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(AndNYConst, in_out_params)
     temp_result -= ca
     temp_result += cb
 
@@ -203,7 +203,7 @@ function tfhe_gate_ANDYN(
 
     #compute: (0,-1/8) + ca - cb
     AndYNConst = modSwitchToTorus32(-1, 8)
-    temp_result = lweNoiselessTrivial(AndYNConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(AndYNConst, in_out_params)
     temp_result += ca
     temp_result -= cb
 
@@ -226,7 +226,7 @@ function tfhe_gate_ORNY(
 
     #compute: (0,1/8) - ca + cb
     OrNYConst = modSwitchToTorus32(1, 8)
-    temp_result = lweNoiselessTrivial(OrNYConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(OrNYConst, in_out_params)
     temp_result -= ca
     temp_result += cb
 
@@ -249,7 +249,7 @@ function tfhe_gate_ORYN(
 
     #compute: (0,1/8) + ca - cb
     OrYNConst = modSwitchToTorus32(1, 8)
-    temp_result = lweNoiselessTrivial(OrYNConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(OrYNConst, in_out_params)
     temp_result += ca
     temp_result -= cb
 
@@ -274,7 +274,7 @@ function tfhe_gate_MUX(
 
     #compute "AND(a,b)": (0,-1/8) + a + b
     AndConst = modSwitchToTorus32(-1, 8)
-    temp_result = lweNoiselessTrivial(AndConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(AndConst, in_out_params)
     temp_result += a
     temp_result += b
     # Bootstrap without KeySwitch
@@ -282,7 +282,7 @@ function tfhe_gate_MUX(
 
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
-    temp_result = lweNoiselessTrivial(AndConst, in_out_params)
+    temp_result = lwe_noiseless_trivial(AndConst, in_out_params)
     temp_result -= a
     temp_result += c
     # Bootstrap without KeySwitch
@@ -290,7 +290,7 @@ function tfhe_gate_MUX(
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)
-    temp_result1 = lweNoiselessTrivial(MuxConst, extracted_params)
+    temp_result1 = lwe_noiseless_trivial(MuxConst, extracted_params)
     temp_result1 += u1
     temp_result1 += u2
     # Key switching
