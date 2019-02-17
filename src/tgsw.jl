@@ -34,7 +34,7 @@ struct TGswParams
             halfBg,
             Bg - 1,
             tlwe_params,
-            convert(Int32, (tlwe_params.k + 1) * l),
+            convert(Int32, (tlwe_params.mask_size + 1) * l),
             h,
             offset,
             )
@@ -62,10 +62,10 @@ struct TGswSample
     samples :: Array{TLweSample, 2}
 
     function TGswSample(params::TGswParams)
-        k = params.tlwe_params.k
+        mask_size = params.tlwe_params.mask_size
         l = params.l
-        samples = [TLweSample(params.tlwe_params) for i in 1:((k + 1) * l)]
-        new(reshape(samples, Int64(l), k + 1))
+        samples = [TLweSample(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
+        new(reshape(samples, Int64(l), mask_size + 1))
     end
 
     TGswSample(samples) = new(samples)
@@ -76,10 +76,10 @@ struct TGswSampleFFT
     samples:: Array{TLweSampleFFT, 2}
 
     function TGswSampleFFT(params::TGswParams)
-        k = params.tlwe_params.k
+        mask_size = params.tlwe_params.mask_size
         l = params.l
-        samples = [TLweSampleFFT(params.tlwe_params) for i in 1:((k + 1) * l)]
-        new(reshape(samples, Int64(l), k + 1))
+        samples = [TLweSampleFFT(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
+        new(reshape(samples, Int64(l), mask_size + 1))
     end
 
     TGswSampleFFT(samples) = new(samples)
@@ -88,14 +88,14 @@ end
 
 # Result += mu*H, mu integer
 function tGswAddMuIntH(result::TGswSample, message::Int32, params::TGswParams)
-    k = params.tlwe_params.k
+    mask_size = params.tlwe_params.mask_size
     l = params.l
     h = params.h
 
     result = deepcopy(result)
 
     # compute result += H
-    for bloc in 0:k
+    for bloc in 0:mask_size
         for i in 0:(l-1)
             result.samples[i+1, bloc+1].a[bloc+1] += message * h[i+1]
         end
@@ -129,7 +129,6 @@ end
 
 function tGswTorus32PolynomialDecompH(sample::TorusPolynomial, params::TGswParams)
 
-    N = params.tlwe_params.N
     l = params.l
     Bgbit = params.Bgbit
     buf = sample.coeffs
@@ -163,12 +162,11 @@ end
 # External product (*): accum = gsw (*) accum
 function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::TGswParams)
     tlwe_params = params.tlwe_params
-    k = tlwe_params.k
+    mask_size = tlwe_params.mask_size
     l = params.l
     kpl = params.kpl
-    N = tlwe_params.N
 
-    deca = vcat([tGswTorus32PolynomialDecompH(accum.a[i+1], params) for i in 0:k]...)
+    deca = vcat([tGswTorus32PolynomialDecompH(accum.a[i+1], params) for i in 0:mask_size]...)
     decaFFT = forward_transform.(deca)
 
     tmpa = zero_tlwe_fft(tlwe_params)

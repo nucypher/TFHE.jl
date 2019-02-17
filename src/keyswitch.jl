@@ -1,14 +1,10 @@
 struct _LweKeySwitchKey
-    n :: Int32 # length of the input key: s'
+    len :: Int32 # length of the input key: s'
     t :: Int32 # decomposition length
     basebit :: Int32 # log_2(base)
     base :: Int32 # decomposition base: a power of 2
     out_params :: LweParams # params of the output key s
-    # these don't seem to be used anywhere
-    #ks0_raw :: Array{LweSample, 1} # tableau qui contient tout les Lwe samples de taille nlbase
-    #ks1_raw :: Array{LweSample, 2} # de taille nl  pointe vers un tableau ks0_raw dont les cases sont espaceés de base positions
     ks :: Array{LweSample, 3} # the keyswitch elements: a n.l.base matrix
-    # de taille n pointe vers ks1 un tableau dont les cases sont espaceés de ell positions
 
     #=
     Create the key switching key:
@@ -28,9 +24,8 @@ struct _LweKeySwitchKey
         ks0_raw = [LweSample(out_params) for i in 1:(n * t * base)]
         ks = reshape(ks0_raw, Int64(base), Int64(t), Int64(n))
 
-        alpha::Float64 = out_key.params.alpha_min
+        alpha::Float64 = out_key.params.min_noise
         sizeks::Int32 = n * t * (base - 1)
-        #const int32_t n_out = out_key.params.n;
 
         err::Float64 = 0
 
@@ -69,7 +64,7 @@ end
 
 struct KeyswitchKey
 
-    n :: Int32 # length of the input key: s'
+    len :: Int32 # length of the input key: s'
     t :: Int32 # decomposition length
     basebit :: Int32 # log_2(base)
     base :: Int32 # decomposition base: a power of 2
@@ -87,15 +82,15 @@ struct KeyswitchKey
         accum_params = bk_params.tlwe_params
         extract_params = accum_params.extracted_lweparams
 
-        n = in_out_params.n
-        N = extract_params.n
+        n = in_out_params.len
+        N = extract_params.len
 
         accum_key = tgsw_key.tlwe_key
         extracted_key = LweKey(extract_params, accum_key)
 
         ks = _LweKeySwitchKey(rng, N, ks_decomp_length, ks_log2_base, extracted_key, key_in)
 
-        new(ks.n, ks.t, ks.basebit, ks.base, ks.out_params, ks.ks)
+        new(ks.len, ks.t, ks.basebit, ks.base, ks.out_params, ks.ks)
     end
 end
 
@@ -139,7 +134,7 @@ end
 #sample=(a',b')
 function lweKeySwitch(ks::KeyswitchKey, sample::LweSample)
     params = ks.out_params
-    n = ks.n
+    n = ks.len
     basebit = ks.basebit
     t = ks.t
 

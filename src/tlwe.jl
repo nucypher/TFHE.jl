@@ -1,12 +1,14 @@
 struct TLweParams
-    N :: Int # a power of 2: degree of the polynomials
-    k :: Int # number of polynomials in the mask
-    alpha_min :: Float64 # minimal noise s.t. the sample is secure
-    alpha_max :: Float64 # maximal noise s.t. we can decrypt
+    polynomial_degree :: Int # a power of 2: degree of the polynomials
+    mask_size :: Int # number of polynomials in the mask
+    min_noise :: Float64 # minimal noise s.t. the sample is secure
+    max_noise :: Float64 # maximal noise s.t. we can decrypt
     extracted_lweparams :: LweParams # lwe params if one extracts
 
-    function TLweParams(N::Int, k::Int, alpha_min::Float64, alpha_max::Float64)
-        new(N, k, alpha_min, alpha_max, LweParams(N * k, alpha_min, alpha_max))
+    function TLweParams(polynomial_degree::Int, mask_size::Int, min_noise::Float64, max_noise::Float64)
+        new(
+            polynomial_degree, mask_size, min_noise, max_noise,
+            LweParams(polynomial_degree * mask_size, min_noise, max_noise))
     end
 end
 
@@ -16,31 +18,22 @@ struct TLweKey
     key :: Array{IntPolynomial, 1} # the key (i.e k binary polynomials)
 
     function TLweKey(rng::AbstractRNG, params::TLweParams)
-        N = params.N
-        k = params.k
-        key = [int_polynomial(rand_uniform_int32(rng, N)) for i in 0:(k-1)]
+        key = [
+            int_polynomial(rand_uniform_int32(rng, params.polynomial_degree))
+            for i in 1:params.mask_size]
         new(params, key)
     end
 end
 
 
 mutable struct TLweSample
-    a :: Array{TorusPolynomial, 1} # array of length k+1: mask + right term
-    #b :: TorusPolynomial # alias of a[k] to get the right term
+    a :: Array{TorusPolynomial, 1} # array of length mask_size+1: mask + right term
     current_variance :: Float64 # avg variance of the sample
 
     function TLweSample(params::TLweParams)
-        # Small change here:
-        # a is a table of k+1 polynomials, b is an alias for &a[k]
-        # like that, we can access all the coefficients as before:
-        #   &sample.a[0],...,&sample.a[k-1]  and &sample.b
-        # or we can also do it in a single for loop
-        #   &sample.a[0],...,&sample.a[k]
-        k = params.k
-        a = [torus_polynomial(zeros(Torus32, params.N)) for i in 1:(k+1)]
-        #b = a + k;
-        current_variance = 0
-
+        a = [
+            torus_polynomial(zeros(Torus32, params.polynomial_degree))
+            for i in 1:(params.mask_size+1)]
         new(a, 0)
     end
 
@@ -49,14 +42,13 @@ end
 
 
 mutable struct TLweSampleFFT
-    a :: Array{LagrangeHalfCPolynomial, 1} # array of length k+1: mask + right term
-    #b :: LagrangeHalfCPolynomial # alias of a[k] to get the right term
+    a :: Array{LagrangeHalfCPolynomial, 1} # array of length mask_size+1: mask + right term
     current_variance :: Float64 # avg variance of the sample
 
     function TLweSampleFFT(params::TLweParams)
-        # a is a table of k+1 polynomials, b is an alias for &a[k]
-        k = params.k
-        a = [LagrangeHalfCPolynomial(zeros(Complex{Float64}, params.N ÷ 2)) for i in 1:(k+1)]
+        a = [
+            LagrangeHalfCPolynomial(zeros(Complex{Float64}, params.polynomial_degree ÷ 2))
+            for i in 1:(params.mask_size+1)]
         new(a, 0.)
     end
 
@@ -71,18 +63,17 @@ function tLweExtractLweSampleIndex(
 
     result = LweSample(params)
 
-    N = rparams.N
-    k = rparams.k
-    @assert params.n == k*N
+    polynomial_degree = rparams.polynomial_degree
+    mask_size = rparams.mask_size
 
-    for i in 0:(k-1)
+    for i in 0:(mask_size-1)
         for j in 0:index
-            result.a[i*N+j+1] = x.a[i+1].coeffs[index-j+1]
+            result.a[i*polynomial_degree+j+1] = x.a[i+1].coeffs[index-j+1]
         end
-        for j in (index+1):(N-1)
-            result.a[i*N+j+1] = -x.a[i+1].coeffs[N+index-j+1]
+        for j in (index+1):(polynomial_degree-1)
+            result.a[i*polynomial_degree+j+1] = -x.a[i+1].coeffs[polynomial_degree+index-j+1]
         end
-        result.b = x.a[k+1].coeffs[index+1]
+        result.b = x.a[mask_size+1].coeffs[index+1]
     end
 
     result
@@ -96,18 +87,18 @@ end
 
 # create an homogeneous tlwe sample
 function tLweSymEncryptZero(rng::AbstractRNG, alpha::Float64, key::TLweKey, params::TLweParams)
-    N = key.params.N
-    k = key.params.k
+    polynomial_degree = params.polynomial_degree
+    mask_size = params.mask_size
 
     result = TLweSample(params)
 
-    for j in 0:(N-1)
-        result.a[k+1].coeffs[j+1] = rand_gaussian_torus32(rng, Int32(0), alpha)
+    for j in 0:(polynomial_degree-1)
+        result.a[mask_size+1].coeffs[j+1] = rand_gaussian_torus32(rng, Int32(0), alpha)
     end
 
-    for i in 0:(k-1)
-        result.a[i+1] = torusPolynomialUniform(rng, N)
-        result.a[k+1] += key.key[i+1] * result.a[i+1]
+    for i in 0:(mask_size-1)
+        result.a[i+1] = torusPolynomialUniform(rng, polynomial_degree)
+        result.a[mask_size+1] += key.key[i+1] * result.a[i+1]
     end
 
     result.current_variance = alpha * alpha
@@ -121,11 +112,10 @@ end
 # result = (0,mu)
 function tLweNoiselessTrivial(mu::TorusPolynomial, params::TLweParams)
     result = TLweSample(params)
-    k = params.k
-    for i in 0:(k-1)
+    for i in 0:(params.mask_size-1)
         torusPolynomialClear(result.a[i+1])
     end
-    result.a[k+1] = deepcopy(mu)
+    result.a[params.mask_size+1] = deepcopy(mu)
     result.current_variance = 0.
     result
 end
@@ -140,8 +130,7 @@ end
 # mult externe de X^ai-1 par bki
 function tLweMulByXaiMinusOne(ai::Integer, bk::TLweSample, params::TLweParams)
     result = TLweSample(params)
-    k = params.k
-    for i in 0:k
+    for i in 0:params.mask_size
         result.a[i+1] = torusPolynomialMulByXaiMinusOne(ai, bk.a[i+1])
     end
     result
@@ -153,9 +142,7 @@ function tLweToFFTConvert(source::TLweSample, params::TLweParams)
 
     result = TLweSampleFFT(params)
 
-    k = params.k
-
-    for i in 0:k
+    for i in 0:params.mask_size
         result.a[i+1] = forward_transform(source.a[i+1])
     end
     result.current_variance = source.current_variance
@@ -168,9 +155,7 @@ function tLweFromFFTConvert(source::TLweSampleFFT, params::TLweParams)
 
     result = TLweSample(params)
 
-    k = params.k
-
-    for i in 0:k
+    for i in 0:params.mask_size
         result.a[i+1] = inverse_transform(source.a[i+1])
     end
     result.current_variance = source.current_variance
@@ -183,8 +168,7 @@ end
 # result = (0,0)
 function zero_tlwe_fft(params::TLweParams)
     result = TLweSampleFFT(params)
-    k = params.k
-    for i in 0:k
+    for i in 0:params.mask_size
         LagrangeHalfCPolynomialClear(result.a[i+1])
     end
     result.current_variance = 0.

@@ -13,8 +13,8 @@ struct BootstrapKey
         extract_params = accum_params.extracted_lweparams
 
         kin = lwe_key.key
-        alpha = accum_params.alpha_min
-        n = in_out_params.n
+        alpha = accum_params.min_noise
+        n = in_out_params.len
         bk = [tGswSymEncryptInt(rng, kin[i], alpha, tgsw_key) for i in 1:n]
 
         # Bootstrapping Key FFT
@@ -89,12 +89,9 @@ function tfhe_blindRotateAndExtract_FFT(
 
     accum_params = bk_params.tlwe_params
 
-    N = accum_params.N
-    _2N = Int32(2) * N
-
     # testvector = X^{2N-barb}*v
     if barb != 0
-        testvectbis = torusPolynomialMulByXai(_2N - barb, v)
+        testvectbis = torusPolynomialMulByXai(accum_params.polynomial_degree * 2 - barb, v)
     else
         testvectbis = deepcopy(v)
     end
@@ -122,23 +119,22 @@ function tfhe_bootstrap_woKS_FFT(bk::BootstrapKey, mu::Torus32, x::LweSample)
     bk_params = bk.bk_params
     accum_params = bk.accum_params
     in_params = bk.in_out_params
-    N = accum_params.N
-    Nx2 = 2 * N
-    n = in_params.n
+    p_degree = accum_params.polynomial_degree
+    lwe_len = in_params.len
 
-    bara = Array{Int32}(undef, n)
+    bara = Array{Int32}(undef, lwe_len)
 
     # Modulus switching
-    barb = modSwitchFromTorus32(x.b, Nx2)
-    for i in 0:(n-1)
-        bara[i+1] = modSwitchFromTorus32(x.a[i+1], Nx2)
+    barb = modSwitchFromTorus32(x.b, p_degree * 2)
+    for i in 0:(lwe_len-1)
+        bara[i+1] = modSwitchFromTorus32(x.a[i+1], p_degree * 2)
     end
 
     # the initial testvec = [mu,mu,mu,...,mu]
-    testvect = torus_polynomial(repeat([mu], N))
+    testvect = torus_polynomial(repeat([mu], p_degree))
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(testvect, bk.bkFFT, barb, bara, n, bk_params)
+    tfhe_blindRotateAndExtract_FFT(testvect, bk.bkFFT, barb, bara, lwe_len, bk_params)
 end
 
 

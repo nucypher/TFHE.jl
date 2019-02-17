@@ -78,7 +78,7 @@ end
 function tfhe_encrypt_bit(rng::AbstractRNG, key::TFHESecretKey, message::Bool)
     _1s8::Torus32 = modSwitchToTorus32(1, 8)
     mu::Torus32 = message ? _1s8 : -_1s8
-    alpha = key.params.in_out_params.alpha_min # TODO: specify noise
+    alpha = key.params.in_out_params.min_noise # TODO: specify noise
     result = TFHEEncryptedBit(key.params)
     lweSymEncrypt(rng, result, mu, alpha, key.lwe_key)
     result

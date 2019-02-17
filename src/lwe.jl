@@ -1,7 +1,7 @@
 struct LweParams
-    n :: Int
-    alpha_min :: Float64
-    alpha_max :: Float64
+    len :: Int
+    min_noise :: Float64
+    max_noise :: Float64
 end
 
 
@@ -10,20 +10,20 @@ struct LweKey
     key :: Array{Int32, 1}
 
     function LweKey(rng::AbstractRNG, params::LweParams)
-        new(params, rand_uniform_int32(rng, Int(params.n))) # TODO: remove Int()
+        new(params, rand_uniform_int32(rng, params.len))
     end
 
     # extractions Ring Lwe . Lwe
-    function LweKey(params::LweParams, tlwe_key) # sans doute un param supplémentaire
+    function LweKey(params::LweParams, tlwe_key)
         @assert isa(tlwe_key, TLweKey) # (can't do it in the signature because it's declared later)
-        N = tlwe_key.params.N
-        k = tlwe_key.params.k
-        @assert params.n == k*N
+        polynomial_degree = tlwe_key.params.polynomial_degree
+        mask_size = tlwe_key.params.mask_size
+        @assert params.len == mask_size * polynomial_degree
 
-        key = Array{Int32}(undef, params.n)
-        for i in 0:(k-1)
-            for j in 0:(N-1)
-                key[i*N+j+1] = tlwe_key.key[i+1].coeffs[j+1]
+        key = Array{Int32}(undef, params.len)
+        for i in 0:(mask_size-1)
+            for j in 0:(polynomial_degree-1)
+                key[i*polynomial_degree+j+1] = tlwe_key.key[i+1].coeffs[j+1]
             end
         end
 
@@ -37,7 +37,7 @@ mutable struct LweSample
     b :: Torus32
     current_variance :: Float64 # average noise of the sample
 
-    LweSample(params::LweParams) = new(Array{Torus32}(undef, params.n), 0, 0.)
+    LweSample(params::LweParams) = new(Array{Torus32}(undef, params.len), 0, 0.)
     LweSample(a, b, cv) = new(a, b, cv)
 end
 
@@ -51,7 +51,7 @@ const TFHEEncryptedBit = LweSample
  * (this means that the parameters are already in the result)
 =#
 function lweSymEncrypt(rng::AbstractRNG, result::LweSample, message::Torus32, alpha::Float64, key::LweKey)
-    n = key.params.n
+    n = key.params.len
 
     result.b = rand_gaussian_torus32(rng, message, alpha)
     for i in 0:(n-1)
@@ -68,7 +68,7 @@ function lweSymEncryptWithExternalNoise(
         rng::AbstractRNG,
         result::LweSample, message::Torus32, noise::Float64, alpha::Float64, key::LweKey)
 
-    n = key.params.n
+    n = key.params.len
 
     result.b = message + dtot32(noise)
 
@@ -82,7 +82,7 @@ end
 
 # This function computes the phase of sample by using key : phi = b - a.s
 function lwePhase(sample::LweSample, key::LweKey)
-    n = key.params.n
+    n = key.params.len
     axs::Torus32 = 0
     a = sample.a
     k = key.key
@@ -105,7 +105,7 @@ end
 
 # result = (0,mu)
 function lweNoiselessTrivial(mu::Torus32, params::LweParams)
-    LweSample(zeros(Torus32, params.n), mu, 0.)
+    LweSample(zeros(Torus32, params.len), mu, 0.)
 end
 
 
