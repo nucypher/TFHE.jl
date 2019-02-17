@@ -3,7 +3,7 @@ struct BootstrapKey
     bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
     accum_params :: TLweParams # params of the accum variable key: s"
     extract_params :: LweParams # params after extraction: key: s'
-    bkFFT :: Array{TGswSampleFFT, 1} # the bootstrapping key (s->s")
+    key :: Array{TGswSampleFFT, 1} # the bootstrapping key (s->s")
 
     function BootstrapKey(rng::AbstractRNG, lwe_key::LweKey, tgsw_key::TGswKey)
 
@@ -134,7 +134,7 @@ function tfhe_bootstrap_woKS_FFT(bk::BootstrapKey, mu::Torus32, x::LweSample)
     testvect = torus_polynomial(repeat([mu], p_degree))
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(testvect, bk.bkFFT, barb, bara, lwe_len, bk_params)
+    tfhe_blindRotateAndExtract_FFT(testvect, bk.key, barb, bara, lwe_len, bk_params)
 end
 
 
