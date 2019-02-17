@@ -15,7 +15,7 @@ include("tlwe.jl")
 include("tgsw.jl")
 
 include("keyswitch.jl")
-include("lwe-bootstrapping.jl")
+include("bootstrap.jl")
 
 include("keys.jl")
 export tfhe_key_pair
@@ -26,7 +26,7 @@ export TFHECloudKey
 export tfhe_encrypt_bit
 export tfhe_decrypt_bit
 
-include("boot-gates.jl")
+include("gates.jl")
 export tfhe_gate_NAND
 export tfhe_gate_OR
 export tfhe_gate_AND
