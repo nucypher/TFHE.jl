@@ -1,24 +1,32 @@
-struct _LweKeySwitchKey
-    len :: Int32 # length of the input key: s'
-    t :: Int32 # decomposition length
-    basebit :: Int32 # log_2(base)
-    base :: Int32 # decomposition base: a power of 2
-    out_params :: LweParams # params of the output key s
-    ks :: Array{LweSample, 3} # the keyswitch elements: a n.l.base matrix
+struct KeyswitchKey
 
-    #=
-    Create the key switching key:
-     * normalize the error in the beginning
-     * chose a random vector of gaussian noises (same size as ks)
-     * recenter the noises
-     * generate the ks by creating noiseless encryprions and then add the noise
-    =#
-    function _LweKeySwitchKey(
-            rng::AbstractRNG,
-            n::Int, t::Int, basebit::Int,
-            in_key::LweKey, out_key::LweKey)
+    input_size :: Int32 # length of the input key: s'
+    decomp_length :: Int32 # decomposition length
+    log2_base :: Int32 # log_2(base)
+    out_params :: LweParams # params of the output key s
+    key :: Array{LweSample, 3} # the keyswitch elements: a n.l.base matrix
+
+    function KeyswitchKey(
+            rng::AbstractRNG, ks_decomp_length::Int, ks_log2_base::Int, key_in::LweKey, tgsw_key::TGswKey)
+
+        bk_params = tgsw_key.params
+        in_out_params = key_in.params
+        accum_params = bk_params.tlwe_params
+        extract_params = accum_params.extracted_lweparams
+
+        n = in_out_params.len
+        N = extract_params.len
+
+        accum_key = tgsw_key.tlwe_key
+        extracted_key = LweKey(extract_params, accum_key)
+
+        in_key = extracted_key
+        out_key = key_in
+        n = N
 
         out_params = out_key.params
+        t = ks_decomp_length
+        basebit = ks_log2_base
 
         base::Int32 = 1 << basebit
         ks0_raw = [LweSample(out_params) for i in 1:(n * t * base)]
@@ -57,40 +65,7 @@ struct _LweKeySwitchKey
             end
         end
 
-        new(n, t, basebit, base, out_params, ks)
-    end
-end
-
-
-struct KeyswitchKey
-
-    len :: Int32 # length of the input key: s'
-    t :: Int32 # decomposition length
-    basebit :: Int32 # log_2(base)
-    base :: Int32 # decomposition base: a power of 2
-    out_params :: LweParams # params of the output key s
-    # these don't seem to be used anywhere
-    #ks0_raw :: Array{LweSample, 1} # tableau qui contient tout les Lwe samples de taille nlbase
-    #ks1_raw :: Array{LweSample, 2} # de taille nl  pointe vers un tableau ks0_raw dont les cases sont espaceés de base positions
-    ks :: Array{LweSample, 3} # the keyswitch elements: a n.l.base matrix
-
-    function KeyswitchKey(
-            rng::AbstractRNG, ks_decomp_length::Int, ks_log2_base::Int, key_in::LweKey, tgsw_key::TGswKey)
-
-        bk_params = tgsw_key.params
-        in_out_params = key_in.params
-        accum_params = bk_params.tlwe_params
-        extract_params = accum_params.extracted_lweparams
-
-        n = in_out_params.len
-        N = extract_params.len
-
-        accum_key = tgsw_key.tlwe_key
-        extracted_key = LweKey(extract_params, accum_key)
-
-        ks = _LweKeySwitchKey(rng, N, ks_decomp_length, ks_log2_base, extracted_key, key_in)
-
-        new(ks.len, ks.t, ks.basebit, ks.base, ks.out_params, ks.ks)
+        new(n, t, basebit, out_params, ks)
     end
 end
 
@@ -134,10 +109,10 @@ end
 #sample=(a',b')
 function lweKeySwitch(ks::KeyswitchKey, sample::LweSample)
     params = ks.out_params
-    n = ks.len
-    basebit = ks.basebit
-    t = ks.t
+    n = ks.input_size
+    basebit = ks.log2_base
+    t = ks.decomp_length
 
     result = lweNoiselessTrivial(sample.b, params)
-    lweKeySwitchTranslate_fromArray(result, ks.ks, params, sample.a, n, t, basebit)
+    lweKeySwitchTranslate_fromArray(result, ks.key, params, sample.a, n, t, basebit)
 end
