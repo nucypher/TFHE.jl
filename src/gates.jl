@@ -22,7 +22,7 @@ function tfhe_gate_NAND(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -45,7 +45,7 @@ function tfhe_gate_OR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -68,7 +68,7 @@ function tfhe_gate_AND(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -91,7 +91,7 @@ function tfhe_gate_XOR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -117,7 +117,7 @@ function tfhe_gate_XNOR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -163,7 +163,7 @@ function tfhe_gate_NOR(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -186,7 +186,7 @@ function tfhe_gate_ANDNY(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -209,7 +209,7 @@ function tfhe_gate_ANDYN(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -232,7 +232,7 @@ function tfhe_gate_ORNY(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -255,7 +255,7 @@ function tfhe_gate_ORYN(
 
     #if the phase is positive, the result is 1/8
     #if the phase is positive, else the result is -1/8
-    tfhe_bootstrap_FFT(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
+    bootstrap(ck.bootstrap_key, ck.keyswitch_key, MU, temp_result)
 end
 
 
@@ -277,22 +277,19 @@ function tfhe_gate_MUX(
     temp_result = lwe_noiseless_trivial(AndConst, in_out_params)
     temp_result += a
     temp_result += b
-    # Bootstrap without KeySwitch
-    u1 = tfhe_bootstrap_woKS_FFT(ck.bootstrap_key, MU, temp_result)
-
+    u1 = bootstrap_wo_keyswitch(ck.bootstrap_key, MU, temp_result)
 
     #compute "AND(not(a),c)": (0,-1/8) - a + c
     temp_result = lwe_noiseless_trivial(AndConst, in_out_params)
     temp_result -= a
     temp_result += c
-    # Bootstrap without KeySwitch
-    u2 = tfhe_bootstrap_woKS_FFT(ck.bootstrap_key, MU, temp_result)
+    u2 = bootstrap_wo_keyswitch(ck.bootstrap_key, MU, temp_result)
 
     # Add u1=u1+u2
     MuxConst = modSwitchToTorus32(1, 8)
     temp_result1 = lwe_noiseless_trivial(MuxConst, extracted_params)
     temp_result1 += u1
     temp_result1 += u2
-    # Key switching
-    lweKeySwitch(ck.keyswitch_key, temp_result1)
+
+    keyswitch(ck.keyswitch_key, temp_result1)
 end

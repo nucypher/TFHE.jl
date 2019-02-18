@@ -83,7 +83,7 @@ end
  * @param t The precision of the keyswitch (technically, 1/2.base^t)
  * @param basebit Log_2 of base
 =#
-function lweKeySwitchTranslate_fromArray(result::LweSample,
+function keyswitchTranslate_fromArray(result::LweSample,
         ks::Array{LweSample, 3}, params::LweParams,
         ai::Array{Torus32, 1},
         n::Int32, t::Int32, basebit::Int32)
@@ -107,12 +107,12 @@ end
 
 
 #sample=(a',b')
-function lweKeySwitch(ks::KeyswitchKey, sample::LweSample)
+function keyswitch(ks::KeyswitchKey, sample::LweSample)
     params = ks.out_params
     n = ks.input_size
     basebit = ks.log2_base
     t = ks.decomp_length
 
     result = lwe_noiseless_trivial(sample.b, params)
-    lweKeySwitchTranslate_fromArray(result, ks.key, params, sample.a, n, t, basebit)
+    keyswitchTranslate_fromArray(result, ks.key, params, sample.a, n, t, basebit)
 end

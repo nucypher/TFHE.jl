@@ -1,8 +1,7 @@
 struct BootstrapKey
     in_out_params :: LweParams # paramètre de l'input et de l'output. key: s
-    bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
-    accum_params :: TLweParams # params of the accum variable key: s"
     extract_params :: LweParams # params after extraction: key: s'
+    bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
     key :: Array{TransformedTGswSample, 1} # the bootstrapping key (s->s")
 
     function BootstrapKey(rng::AbstractRNG, lwe_key::LweKey, tgsw_key::TGswKey)
@@ -14,33 +13,21 @@ struct BootstrapKey
 
         kin = lwe_key.key
         alpha = accum_params.min_noise
-        n = in_out_params.len
-        bk = [tgsw_encrypt(rng, kin[i], alpha, tgsw_key) for i in 1:n]
+        lwe_len = in_out_params.len
 
-        # Bootstrapping Key FFT
-        bkFFT = forward_transform.(bk)
+        bk = [tgsw_encrypt(rng, kin[i], alpha, tgsw_key) for i in 1:lwe_len]
+        transformed_bk = forward_transform.(bk)
 
-        new(in_out_params, bk_params, accum_params, extract_params, bkFFT)
+        new(in_out_params, extract_params, bk_params, transformed_bk)
     end
 end
 
 
-function tfhe_MuxRotate_FFT(
-        accum::TLweSample, bki::TransformedTGswSample, barai::Int32,
-        bk_params::TGswParams)
-
-    # ACC = BKi*[(X^barai-1)*ACC]+ACC
-
-    # temp = (X^barai-1)*ACC
-    result = shift_polynomial(accum, barai) - accum
-
-    # temp *= BKi
-    result = tgsw_extern_mul(result, bki, bk_params)
-
-    # ACC += temp
-    result += accum
-
-    result
+function mux_rotate(
+        accum::TLweSample, bki::TransformedTGswSample, barai::Int32, bk_params::TGswParams)
+    # accum += BK_i * [(X^bar{a}_i-1) * accum]
+    temp = shift_polynomial(accum, barai) - accum
+    accum + tgsw_extern_mul(temp, bki, bk_params)
 end
 
 
@@ -49,24 +36,13 @@ end
  * @param accum the TLWE sample to multiply
  * @param bk An array of n TGSW FFT samples where bk_i encodes s_i
  * @param bara An array of n coefficients between 0 and 2N-1
- * @param bk_params The parameters of bk
 =#
-function tfhe_blindRotate_FFT(accum::TLweSample,
-                                 bkFFT::Array{TransformedTGswSample, 1},
-                                 bara::Array{Int32, 1},
-                                 n::Int,
-                                 bk_params::TGswParams)
-
-    for i in 0:(n-1)
-
-        barai = bara[i+1]
-        if barai == 0
-            continue
+function blind_rotate(accum::TLweSample, bk::BootstrapKey, bara::Array{Int32, 1})
+    for i in 1:length(bk.key)
+        if bara[i] != 0
+            accum = mux_rotate(accum, bk.key[i], bara[i], bk.bk_params)
         end
-
-        accum = tfhe_MuxRotate_FFT(accum, bkFFT[i+1], barai, bk_params)
     end
-
     accum
 end
 
@@ -78,33 +54,18 @@ end
  * @param bk An array of n TGSW FFT samples where bk_i encodes s_i
  * @param barb A coefficients between 0 and 2N-1
  * @param bara An array of n coefficients between 0 and 2N-1
- * @param bk_params The parameters of bk
 =#
-function tfhe_blindRotateAndExtract_FFT(
-                                           v::TorusPolynomial,
-                                           bk::Array{TransformedTGswSample, 1},
-                                           barb::Int32,
-                                           bara::Array{Int32, 1},
-                                           n::Int,
-                                           bk_params::TGswParams)
+function blind_rotate_and_extract(
+        v::TorusPolynomial, bk::BootstrapKey, barb::Int32, bara::Array{Int32, 1})
 
-    accum_params = bk_params.tlwe_params
+    accum_params = bk.bk_params.tlwe_params
 
     # testvector = X^{2N-barb}*v == X^{-barb}*v
-    if barb != 0
-        testvectbis = shift_polynomial(v, -barb)
-    else
-        testvectbis = deepcopy(v)
-    end
+    testvectbis = shift_polynomial(v, -barb)
 
-    # Accumulator
-    acc = tlwe_noiseless_trivial(testvectbis, accum_params)
-
-    # Blind rotation
-    acc = tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
-
-    # Extraction
-    tlwe_extract_sample(acc, accum_params)
+    accum = tlwe_noiseless_trivial(testvectbis, accum_params)
+    accum = blind_rotate(accum, bk, bara)
+    tlwe_extract_sample(accum, accum_params)
 end
 
 
@@ -115,27 +76,19 @@ end
  * @param mu The output message (if phase(x)>0)
  * @param x The input sample
 =#
-function tfhe_bootstrap_woKS_FFT(bk::BootstrapKey, mu::Torus32, x::LweSample)
+function bootstrap_wo_keyswitch(bk::BootstrapKey, mu::Torus32, x::LweSample)
 
-    bk_params = bk.bk_params
-    accum_params = bk.accum_params
-    in_params = bk.in_out_params
-    p_degree = accum_params.polynomial_degree
-    lwe_len = in_params.len
-
-    bara = Array{Int32}(undef, lwe_len)
+    p_degree = bk.bk_params.tlwe_params.polynomial_degree
 
     # Modulus switching
+    bara = modSwitchFromTorus32.(x.a, p_degree * 2)
     barb = modSwitchFromTorus32(x.b, p_degree * 2)
-    for i in 0:(lwe_len-1)
-        bara[i+1] = modSwitchFromTorus32(x.a[i+1], p_degree * 2)
-    end
 
     # the initial testvec = [mu,mu,mu,...,mu]
     testvect = torus_polynomial(repeat([mu], p_degree))
 
     # Bootstrapping rotation and extraction
-    tfhe_blindRotateAndExtract_FFT(testvect, bk.key, barb, bara, lwe_len, bk_params)
+    blind_rotate_and_extract(testvect, bk, barb, bara)
 end
 
 
@@ -146,12 +99,7 @@ end
  * @param mu The output message (if phase(x)>0)
  * @param x The input sample
 =#
-function tfhe_bootstrap_FFT(
-                               bk::BootstrapKey,
-                               ks::KeyswitchKey,
-                               mu::Torus32,
-                               x::LweSample)
-
-    u = tfhe_bootstrap_woKS_FFT(bk, mu, x)
-    lweKeySwitch(ks, u)
+function bootstrap(bk::BootstrapKey, ks::KeyswitchKey, mu::Torus32, x::LweSample)
+    u = bootstrap_wo_keyswitch(bk, mu, x)
+    keyswitch(ks, u)
 end
