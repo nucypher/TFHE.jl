@@ -3,7 +3,7 @@ struct BootstrapKey
     bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
     accum_params :: TLweParams # params of the accum variable key: s"
     extract_params :: LweParams # params after extraction: key: s'
-    key :: Array{TGswSampleFFT, 1} # the bootstrapping key (s->s")
+    key :: Array{TransformedTGswSample, 1} # the bootstrapping key (s->s")
 
     function BootstrapKey(rng::AbstractRNG, lwe_key::LweKey, tgsw_key::TGswKey)
 
@@ -15,10 +15,10 @@ struct BootstrapKey
         kin = lwe_key.key
         alpha = accum_params.min_noise
         n = in_out_params.len
-        bk = [tGswSymEncryptInt(rng, kin[i], alpha, tgsw_key) for i in 1:n]
+        bk = [tgsw_encrypt(rng, kin[i], alpha, tgsw_key) for i in 1:n]
 
         # Bootstrapping Key FFT
-        bkFFT = [tGswToFFTConvert(bk[i], bk_params) for i in 1:n]
+        bkFFT = forward_transform.(bk)
 
         new(in_out_params, bk_params, accum_params, extract_params, bkFFT)
     end
@@ -26,7 +26,7 @@ end
 
 
 function tfhe_MuxRotate_FFT(
-        accum::TLweSample, bki::TGswSampleFFT, barai::Int32,
+        accum::TLweSample, bki::TransformedTGswSample, barai::Int32,
         bk_params::TGswParams)
 
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
@@ -35,7 +35,7 @@ function tfhe_MuxRotate_FFT(
     result = shift_polynomial(accum, barai) - accum
 
     # temp *= BKi
-    result = tGswFFTExternMulToTLwe(result, bki, bk_params)
+    result = tgsw_extern_mul(result, bki, bk_params)
 
     # ACC += temp
     result += accum
@@ -52,7 +52,7 @@ end
  * @param bk_params The parameters of bk
 =#
 function tfhe_blindRotate_FFT(accum::TLweSample,
-                                 bkFFT::Array{TGswSampleFFT, 1},
+                                 bkFFT::Array{TransformedTGswSample, 1},
                                  bara::Array{Int32, 1},
                                  n::Int,
                                  bk_params::TGswParams)
@@ -82,7 +82,7 @@ end
 =#
 function tfhe_blindRotateAndExtract_FFT(
                                            v::TorusPolynomial,
-                                           bk::Array{TGswSampleFFT, 1},
+                                           bk::Array{TransformedTGswSample, 1},
                                            barb::Int32,
                                            bara::Array{Int32, 1},
                                            n::Int,

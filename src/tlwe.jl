@@ -96,11 +96,11 @@ DarkIntegers.shift_polynomial(s::TLweSample, shift::Integer) =
     TLweSample(shift_polynomial.(s.a, shift), s.current_variance)
 
 
-forward_transform(source::TLweSample, params::TLweParams) =
+forward_transform(source::TLweSample) =
     TransformedTLweSample(forward_transform.(source.a), source.current_variance)
 
 
-inverse_transform(source::TransformedTLweSample, params::TLweParams) =
+inverse_transform(source::TransformedTLweSample) =
     TLweSample(inverse_transform.(source.a), source.current_variance)
 
 
