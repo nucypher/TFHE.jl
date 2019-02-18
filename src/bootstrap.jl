@@ -30,8 +30,9 @@ function tfhe_MuxRotate_FFT(
         bk_params::TGswParams)
 
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
+
     # temp = (X^barai-1)*ACC
-    result = tLweMulByXaiMinusOne(barai, accum, bk_params.tlwe_params)
+    result = shift_polynomial(accum, barai) - accum
 
     # temp *= BKi
     result = tGswFFTExternMulToTLwe(result, bki, bk_params)
@@ -89,21 +90,21 @@ function tfhe_blindRotateAndExtract_FFT(
 
     accum_params = bk_params.tlwe_params
 
-    # testvector = X^{2N-barb}*v
+    # testvector = X^{2N-barb}*v == X^{-barb}*v
     if barb != 0
-        testvectbis = torusPolynomialMulByXai(accum_params.polynomial_degree * 2 - barb, v)
+        testvectbis = shift_polynomial(v, -barb)
     else
         testvectbis = deepcopy(v)
     end
 
     # Accumulator
-    acc = tLweNoiselessTrivial(testvectbis, accum_params)
+    acc = tlwe_noiseless_trivial(testvectbis, accum_params)
 
     # Blind rotation
     acc = tfhe_blindRotate_FFT(acc, bk, bara, n, bk_params)
 
     # Extraction
-    tLweExtractLweSample(acc, accum_params)
+    tlwe_extract_sample(acc, accum_params)
 end
 
 

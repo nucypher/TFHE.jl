@@ -66,12 +66,12 @@ end
 
 
 struct TGswSampleFFT
-    samples:: Array{TLweSampleFFT, 2}
+    samples:: Array{TransformedTLweSample, 2}
 
     function TGswSampleFFT(params::TGswParams)
         mask_size = params.tlwe_params.mask_size
         l = params.decomp_length
-        samples = [TLweSampleFFT(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
+        samples = [TransformedTLweSample(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
         new(reshape(samples, Int64(l), mask_size + 1))
     end
 
@@ -105,7 +105,7 @@ function tGswEncryptZero(rng::AbstractRNG, alpha::Float64, key::TGswKey, params:
     result = TGswSample(params)
 
     for p in 1:length(result.samples)
-        result.samples[p] = tLweSymEncryptZero(rng, alpha, rlkey, params.tlwe_params)
+        result.samples[p] = tlwe_encrypt_zero(rng, alpha, rlkey, params.tlwe_params)
     end
 
     result
@@ -143,7 +143,7 @@ function tGswToFFTConvert(source::TGswSample, params::TGswParams)
     result = TGswSampleFFT(params)
 
     for p in 1:length(result.samples)
-        result.samples[p] = tLweToFFTConvert(source.samples[p], params.tlwe_params)
+        result.samples[p] = forward_transform(source.samples[p], params.tlwe_params)
     end
 
     result
@@ -156,13 +156,10 @@ function tGswFFTExternMulToTLwe(accum::TLweSample, gsw::TGswSampleFFT, params::T
     mask_size = tlwe_params.mask_size
     l = params.decomp_length
 
-    deca = vcat([tGswTorus32PolynomialDecompH(accum.a[i+1], params) for i in 0:mask_size]...)
+    deca = hcat([tGswTorus32PolynomialDecompH(accum.a[i+1], params) for i in 0:mask_size]...)
     decaFFT = forward_transform.(deca)
 
-    tmpa = zero_tlwe_fft(tlwe_params)
-    for p in 1:length(gsw.samples)
-        tmpa += gsw.samples[p] * decaFFT[p]
-    end
+    tmpa = sum(gsw.samples .* decaFFT)
 
-    tLweFromFFTConvert(tmpa, tlwe_params)
+    inverse_transform(tmpa, tlwe_params)
 end

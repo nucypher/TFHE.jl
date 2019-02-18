@@ -8,12 +8,25 @@ int_polynomial(coeffs) = IntPolynomial(coeffs, true)
 torus_polynomial(coeffs) = TorusPolynomial(coeffs, true)
 
 
-struct LagrangeHalfCPolynomial
+zero_torus_polynomial(len) = torus_polynomial(zeros(Torus32, len))
+
+
+struct TransformedTorusPolynomial
     coeffs :: Array{Complex{Float64}, 1}
 end
 
 
-Base.broadcastable(x::LagrangeHalfCPolynomial) = Ref(x)
+Base.broadcastable(x::TransformedTorusPolynomial) = Ref(x)
+
+
+"""
+For the given p(x), calculates p(1/x) with the applcation of the corresponding modulus
+(x^N - 1) for cyclic polynomials, (x^N+1) for negacyclic ones.
+"""
+function reverse_polynomial(p::Polynomial)
+    new_coeffs = collect(reverse(p.coeffs))
+    shift_polynomial(Polynomial(new_coeffs, p.negacyclic), length(new_coeffs) + 1)
+end
 
 
 struct ForwardTransformPlan
@@ -83,7 +96,7 @@ function forward_transform(p::Union{IntPolynomial, TorusPolynomial})
     N = length(c)
     p = get_forward_transform_plan(N)
     p.buffer .= (c[1:N÷2] .- im .* c[N÷2+1:end]) .* p.coeffs
-    LagrangeHalfCPolynomial(p.plan * p.buffer)
+    TransformedTorusPolynomial(p.plan * p.buffer)
 end
 
 
@@ -95,7 +108,7 @@ function to_int32(x::Float64)
 end
 
 
-function inverse_transform(x::LagrangeHalfCPolynomial)
+function inverse_transform(x::TransformedTorusPolynomial)
 
     c = x.coeffs
     len = length(c)
@@ -114,16 +127,16 @@ end
 #MISC OPERATIONS
 
 # sets to zero
-function LagrangeHalfCPolynomialClear(reps::LagrangeHalfCPolynomial)
+function TransformedTorusPolynomialClear(reps::TransformedTorusPolynomial)
     reps.coeffs .= 0
 end
 
 
-Base.:+(x::LagrangeHalfCPolynomial, y::LagrangeHalfCPolynomial) =
-    LagrangeHalfCPolynomial(x.coeffs .+ y.coeffs)
+Base.:+(x::TransformedTorusPolynomial, y::TransformedTorusPolynomial) =
+    TransformedTorusPolynomial(x.coeffs .+ y.coeffs)
 
-Base.:*(x::LagrangeHalfCPolynomial, y::LagrangeHalfCPolynomial) =
-    LagrangeHalfCPolynomial(x.coeffs .* y.coeffs)
+Base.:*(x::TransformedTorusPolynomial, y::TransformedTorusPolynomial) =
+    TransformedTorusPolynomial(x.coeffs .* y.coeffs)
 
 
 # Torus polynomial functions
@@ -136,16 +149,4 @@ end
 # TorusPolynomial = random
 function torusPolynomialUniform(rng::AbstractRNG, N)
     torus_polynomial(rand_uniform_torus32(rng, N))
-end
-
-
-# result = (X^ai-1) * source
-function torusPolynomialMulByXaiMinusOne(ai::Integer, source::TorusPolynomial)
-    shift_polynomial(source, ai) - source
-end
-
-
-# result= X^{a}*source
-function torusPolynomialMulByXai(a::Integer, source::TorusPolynomial)
-    shift_polynomial(source, a)
 end

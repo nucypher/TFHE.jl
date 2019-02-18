@@ -17,10 +17,10 @@ end
 
 
 # Gaussian sample centered in message, with standard deviation sigma
-function rand_gaussian_torus32(rng::AbstractRNG, message::Torus32, sigma::Float64)
+function rand_gaussian_torus32(rng::AbstractRNG, message::Torus32, sigma::Float64, dims...)
     # Attention: all the implementation will use the stdev instead of the gaussian fourier param
-    err = randn(rng) * sigma
-    message + dtot32(err)
+    err = randn(rng, dims...) .* sigma
+    message .+ dtot32.(err)
 end
 
 
