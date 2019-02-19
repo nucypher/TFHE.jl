@@ -6,18 +6,18 @@ using TFHE
 
 
 gate_tests = [
-    ("NAND", tfhe_gate_NAND, 2, !&),
-    ("OR", tfhe_gate_OR, 2, |),
-    ("AND", tfhe_gate_AND, 2, &),
-    ("XOR", tfhe_gate_XOR, 2, xor),
-    ("XNOR", tfhe_gate_XNOR, 2, (x, y) -> xor(x, ~y)),
-    ("NOT", tfhe_gate_NOT, 1, ~),
-    ("NOR", tfhe_gate_NOR, 2, !|),
-    ("ANDNY", tfhe_gate_ANDNY, 2, (x, y) -> (~x) & y),
-    ("ANDYN", tfhe_gate_ANDYN, 2, (x, y) -> x & (~y)),
-    ("ORNY", tfhe_gate_ORNY, 2, (x, y) -> (~x) | y),
-    ("ORYN", tfhe_gate_ORYN, 2, (x, y) -> x | (~y)),
-    ("MUX", tfhe_gate_MUX, 3, (x, y, z) -> x ? y : z),
+    ("NAND", gate_nand, 2, !&),
+    ("OR", gate_or, 2, |),
+    ("AND", gate_and, 2, &),
+    ("XOR", gate_xor, 2, xor),
+    ("XNOR", gate_xnor, 2, (x, y) -> xor(x, ~y)),
+    ("NOT", gate_not, 1, ~),
+    ("NOR", gate_nor, 2, !|),
+    ("ANDNY", gate_andny, 2, (x, y) -> (~x) & y),
+    ("ANDYN", gate_andyn, 2, (x, y) -> x & (~y)),
+    ("ORNY", gate_orny, 2, (x, y) -> (~x) | y),
+    ("ORYN", gate_oryn, 2, (x, y) -> x | (~y)),
+    ("MUX", gate_mux, 3, (x, y, z) -> x ? y : z),
 ]
 
 gate_test_ids = [gate_test[1] for gate_test in gate_tests]

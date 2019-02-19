@@ -28,8 +28,7 @@ end
 # The constant Msize will indicate on which message space we are working (how many messages possible)
 #
 # "travailler sur 63 bits au lieu de 64, car dans nos cas pratiques, c'est plus précis"
-modSwitchFromTorus32(phase::Torus32, Msize::Int) = modSwitchFromTorus32(phase, Int32(Msize))
-function modSwitchFromTorus32(phase::Torus32, Msize::Int32)
+function decode_message(phase::Torus32, Msize::Integer)
     interv::UInt64 = ((UInt64(1) << 63)/Msize) * UInt64(2) # width of each intervall
     half_interval::UInt64 = interv / 2 # begin of the first intervall
     phase64::UInt64 = (UInt64(unsigned(phase)) << 32) + half_interval
@@ -41,16 +40,16 @@ end
 # The constant Msize will indicate on which message space we are working (how many messages possible)
 #
 # "travailler sur 63 bits au lieu de 64, car dans nos cas pratiques, c'est plus précis"
-modSwitchToTorus32(mu::Int, Msize::Int) = modSwitchToTorus32(Int32(mu), Int32(Msize))
-function modSwitchToTorus32(mu::Int32, Msize::Int32)
+function encode_message(mu::Integer, Msize::Integer)
     interv::UInt64 = ((UInt64(1) << 63) / Msize) * UInt64(2) # width of each intervall
-    phase64::UInt64 = unsigned(mu) * interv
+    phase64::UInt64 = mu * interv
     # floor to the nearest multiples of interv
     Torus32(signed(UInt32(phase64 >> 32)))
 end
 
 
 # from double to Torus32
+# TODO: technically, trunc() is not needed, since `d` is limited to [-0.5...0.5] anyway
 function dtot32(d::Float64)
     trunc(Int32, (d - trunc(d)) * 2^32)
 end

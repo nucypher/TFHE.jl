@@ -44,8 +44,8 @@ end
 function encrypted_compare_bit(
         cloud_key::TFHECloudKey,
         a::TFHEEncryptedBit, b::TFHEEncryptedBit, lsb_carry::TFHEEncryptedBit)
-    tmp = tfhe_gate_XNOR(cloud_key, a, b)
-    tfhe_gate_MUX(cloud_key, tmp, lsb_carry, a)
+    tmp = gate_xnor(cloud_key, a, b)
+    gate_mux(cloud_key, tmp, lsb_carry, a)
 end
 
 # this function compares two multibit words, and puts the max in result
@@ -56,7 +56,7 @@ function encrypted_minimum(
     nb_bits = length(a)
 
     # initialize the carry to 0
-    tmps1 = tfhe_gate_CONSTANT(cloud_key, false)
+    tmps1 = gate_constant(cloud_key, false)
     # run the elementary comparator gate n times
     for i in 1:nb_bits
         tmps1 = encrypted_compare_bit(cloud_key, a[i], b[i], tmps1)
@@ -64,7 +64,7 @@ function encrypted_minimum(
 
     # tmps1 is the result of the comparaison: 0 if a is larger, 1 if b is larger
     # select the max and copy it to the result
-    [tfhe_gate_MUX(cloud_key, tmps1, b[i], a[i]) for i in 1:nb_bits]
+    [gate_mux(cloud_key, tmps1, b[i], a[i]) for i in 1:nb_bits]
 end
 
 

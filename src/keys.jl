@@ -72,10 +72,8 @@ end
 
 # encrypts a boolean
 function tfhe_encrypt_bit(rng::AbstractRNG, key::TFHESecretKey, message::Bool)
-    _1s8::Torus32 = modSwitchToTorus32(1, 8)
-    mu::Torus32 = message ? _1s8 : -_1s8
     alpha = key.params.in_out_params.min_noise # TODO: specify noise
-    lwe_encrypt(rng, mu, alpha, key.lwe_key)
+    lwe_encrypt(rng, encode_message(message ? 1 : -1, 8), alpha, key.lwe_key)
 end
 
 

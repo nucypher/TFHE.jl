@@ -81,8 +81,8 @@ function bootstrap_wo_keyswitch(bk::BootstrapKey, mu::Torus32, x::LweSample)
     p_degree = bk.bk_params.tlwe_params.polynomial_degree
 
     # Modulus switching
-    bara = modSwitchFromTorus32.(x.a, p_degree * 2)
-    barb = modSwitchFromTorus32(x.b, p_degree * 2)
+    bara = decode_message.(x.a, p_degree * 2)
+    barb = decode_message(x.b, p_degree * 2)
 
     # the initial testvec = [mu,mu,mu,...,mu]
     testvect = torus_polynomial(repeat([mu], p_degree))
