@@ -19,7 +19,7 @@ include("tgsw.jl")
 include("keyswitch.jl")
 include("bootstrap.jl")
 
-include("keys.jl")
+include("api.jl")
 export tfhe_key_pair
 export tfhe_parameters
 export TFHEEncryptedBit
