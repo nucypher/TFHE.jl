@@ -11,8 +11,8 @@ function rand_uniform_torus32(rng::AbstractRNG, dims...)
 end
 
 
-function rand_gaussian_float(rng::AbstractRNG, sigma::Float64)
-    randn(rng) * sigma
+function rand_gaussian_float(rng::AbstractRNG, sigma::Float64, dims...)
+    randn(rng, dims...) .* sigma
 end
 
 
