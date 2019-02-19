@@ -1,6 +1,7 @@
 IntPolynomial = Polynomial{Int32}
 TorusPolynomial = Polynomial{Torus32}
 
+
 int_polynomial(coeffs) = IntPolynomial(coeffs, true)
 torus_polynomial(coeffs) = TorusPolynomial(coeffs, true)
 
@@ -11,6 +12,14 @@ zero_torus_polynomial(len) = torus_polynomial(zeros(Torus32, len))
 struct TransformedTorusPolynomial
     coeffs :: Array{Complex{Float64}, 1}
 end
+
+
+Base.:+(x::TransformedTorusPolynomial, y::TransformedTorusPolynomial) =
+    TransformedTorusPolynomial(x.coeffs .+ y.coeffs)
+
+
+Base.:*(x::TransformedTorusPolynomial, y::TransformedTorusPolynomial) =
+    TransformedTorusPolynomial(x.coeffs .* y.coeffs)
 
 
 Base.broadcastable(x::TransformedTorusPolynomial) = Ref(x)
@@ -26,9 +35,15 @@ function reverse_polynomial(p::Polynomial)
 end
 
 
+#=
+Using tangent FFT for polynomial convolution (by multiplying them in the transformed space).
+Sacrificing some readability for a big speed improvement.
+=#
+
+
 struct ForwardTransformPlan
 
-    plan
+    plan :: FFTW.Plan
     coeffs :: Array{Complex{Float64}, 1}
     buffer :: Array{Complex{Float64}, 1}
 
@@ -45,7 +60,7 @@ end
 
 struct InverseTransformPlan
 
-    plan
+    plan :: FFTW.Plan
     coeffs :: Array{Complex{Float64}, 1}
     complex_buffer :: Array{Complex{Float64}, 1}
     int_buffer :: Array{Torus32, 1}
@@ -97,12 +112,8 @@ function forward_transform(p::Union{IntPolynomial, TorusPolynomial})
 end
 
 
-function to_int32(x::Int64)
-    signed(trunc(UInt32, unsigned(x) & 0xffffffff))
-end
-function to_int32(x::Float64)
-    to_int32(round(Int64, x))
-end
+to_int32(x::Int64) = signed(trunc(UInt32, unsigned(x) & 0xffffffff))
+to_int32(x::Float64) = to_int32(round(Int64, x))
 
 
 function inverse_transform(x::TransformedTorusPolynomial)
@@ -118,32 +129,4 @@ function inverse_transform(x::TransformedTorusPolynomial)
     p.int_buffer[len+1:end] .= to_int32.(imag.(p.complex_buffer))
 
     torus_polynomial(copy(p.int_buffer))
-end
-
-
-#MISC OPERATIONS
-
-# sets to zero
-function TransformedTorusPolynomialClear(reps::TransformedTorusPolynomial)
-    reps.coeffs .= 0
-end
-
-
-Base.:+(x::TransformedTorusPolynomial, y::TransformedTorusPolynomial) =
-    TransformedTorusPolynomial(x.coeffs .+ y.coeffs)
-
-Base.:*(x::TransformedTorusPolynomial, y::TransformedTorusPolynomial) =
-    TransformedTorusPolynomial(x.coeffs .* y.coeffs)
-
-
-# Torus polynomial functions
-
-# TorusPolynomial = 0
-function torusPolynomialClear(result::TorusPolynomial)
-    result.coeffs .= 0
-end
-
-# TorusPolynomial = random
-function torusPolynomialUniform(rng::AbstractRNG, N)
-    torus_polynomial(rand_uniform_torus32(rng, N))
 end
