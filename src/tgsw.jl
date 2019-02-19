@@ -1,6 +1,6 @@
 struct TGswParams
-    decomp_length :: Int32 # decomposition length
-    log2_base :: Int32 # log2(decomposition base)
+    decomp_length :: Int # decomposition length
+    log2_base :: Int # log2(decomposition base)
     tlwe_params :: TLweParams # Params of each row
 
     gadget_values :: Array{Torus32, 1} # powers of the decomposition base
@@ -35,30 +35,16 @@ end
 
 
 struct TGswSample
-    samples :: Array{TLweSample, 2}
+    samples :: Array{TLweSample, 2} # array of size (decomp_length, mask_size+1)
 
-    function TGswSample(params::TGswParams)
-        mask_size = params.tlwe_params.mask_size
-        l = params.decomp_length
-        samples = [TLweSample(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
-        new(reshape(samples, Int64(l), mask_size + 1))
-    end
-
-    TGswSample(samples) = new(samples)
+    TGswSample(samples::Array{TLweSample, 2}) = new(samples)
 end
 
 
 struct TransformedTGswSample
-    samples:: Array{TransformedTLweSample, 2}
+    samples :: Array{TransformedTLweSample, 2} # array of size (decomp_length, mask_size+1)
 
-    function TransformedTGswSample(params::TGswParams)
-        mask_size = params.tlwe_params.mask_size
-        l = params.decomp_length
-        samples = [TransformedTLweSample(params.tlwe_params) for i in 1:((mask_size + 1) * l)]
-        new(reshape(samples, Int64(l), mask_size + 1))
-    end
-
-    TransformedTGswSample(samples) = new(samples)
+    TransformedTGswSample(samples::Array{TransformedTLweSample, 2}) = new(samples)
 end
 
 

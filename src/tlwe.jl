@@ -30,13 +30,6 @@ mutable struct TLweSample
     a :: Array{TorusPolynomial, 1} # array of length mask_size+1: mask + right term
     current_variance :: Float64 # avg variance of the sample
 
-    function TLweSample(params::TLweParams)
-        a = [
-            torus_polynomial(zeros(Torus32, params.polynomial_degree))
-            for i in 1:(params.mask_size+1)]
-        new(a, 0)
-    end
-
     TLweSample(a::Array{TorusPolynomial, 1}, cv::Float64) = new(a, cv)
 end
 
@@ -45,14 +38,7 @@ mutable struct TransformedTLweSample
     a :: Array{TransformedTorusPolynomial, 1} # array of length mask_size+1: mask + right term
     current_variance :: Float64 # avg variance of the sample
 
-    function TransformedTLweSample(params::TLweParams)
-        a = [
-            TransformedTorusPolynomial(zeros(Complex{Float64}, params.polynomial_degree ÷ 2))
-            for i in 1:(params.mask_size+1)]
-        new(a, 0.)
-    end
-
-    TransformedTLweSample(a, cv) = new(a, cv)
+    TransformedTLweSample(a::Array{TransformedTorusPolynomial, 1}, cv::Float64) = new(a, cv)
 end
 
 
@@ -104,8 +90,11 @@ inverse_transform(source::TransformedTLweSample) =
     TLweSample(inverse_transform.(source.a), source.current_variance)
 
 
+# TODO: how to compute the variance correctly?
 Base.:+(x::TransformedTLweSample, y::TransformedTLweSample) =
-    TransformedTLweSample(x.a .+ y.a, x.current_variance + y.current_variance) # TODO: how to compute the variance correctly?
+    TransformedTLweSample(x.a .+ y.a, x.current_variance + y.current_variance)
 
+
+# TODO: how to compute the variance correctly?
 Base.:*(x::TransformedTLweSample, y::TransformedTorusPolynomial) =
-    TransformedTLweSample(x.a .* y, x.current_variance) # TODO: how to compute the variance correctly?
+    TransformedTLweSample(x.a .* y, x.current_variance)

@@ -81,5 +81,3 @@ end
 function tfhe_decrypt_bit(key::TFHESecretKey, sample::TFHEEncryptedBit)
     lwe_phase(sample, key.lwe_key) > 0
 end
-
-TFHEEncryptedBit(params::TFHEParameters) = LweSample(params.in_out_params)

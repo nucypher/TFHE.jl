@@ -1,24 +1,19 @@
 struct BootstrapKey
-    in_out_params :: LweParams # paramètre de l'input et de l'output. key: s
-    extract_params :: LweParams # params after extraction: key: s'
-    bk_params :: TGswParams # params of the Gsw elems in bk. key: s"
+    tgsw_params :: TGswParams # params of the Gsw elems in bk. key: s"
     key :: Array{TransformedTGswSample, 1} # the bootstrapping key (s->s")
 
     function BootstrapKey(rng::AbstractRNG, lwe_key::LweKey, tgsw_key::TGswKey)
 
-        in_out_params = lwe_key.params
-        bk_params = tgsw_key.params
-        accum_params = bk_params.tlwe_params
-        extract_params = accum_params.extracted_lweparams
+        tgsw_params = tgsw_key.params
+        accum_params = tgsw_params.tlwe_params
 
-        kin = lwe_key.key
         alpha = accum_params.min_noise
-        lwe_len = in_out_params.len
+        lwe_len = lwe_key.params.len
 
-        bk = [tgsw_encrypt(rng, kin[i], alpha, tgsw_key) for i in 1:lwe_len]
+        bk = [tgsw_encrypt(rng, lwe_key.key[i], alpha, tgsw_key) for i in 1:lwe_len]
         transformed_bk = forward_transform.(bk)
 
-        new(in_out_params, extract_params, bk_params, transformed_bk)
+        new(tgsw_params, transformed_bk)
     end
 end
 
@@ -40,7 +35,7 @@ end
 function blind_rotate(accum::TLweSample, bk::BootstrapKey, bara::Array{Int32, 1})
     for i in 1:length(bk.key)
         if bara[i] != 0
-            accum = mux_rotate(accum, bk.key[i], bara[i], bk.bk_params)
+            accum = mux_rotate(accum, bk.key[i], bara[i], bk.tgsw_params)
         end
     end
     accum
@@ -58,7 +53,7 @@ end
 function blind_rotate_and_extract(
         v::TorusPolynomial, bk::BootstrapKey, barb::Int32, bara::Array{Int32, 1})
 
-    accum_params = bk.bk_params.tlwe_params
+    accum_params = bk.tgsw_params.tlwe_params
 
     # testvector = X^{2N-barb}*v == X^{-barb}*v
     testvectbis = shift_polynomial(v, -barb)
@@ -78,7 +73,7 @@ end
 =#
 function bootstrap_wo_keyswitch(bk::BootstrapKey, mu::Torus32, x::LweSample)
 
-    p_degree = bk.bk_params.tlwe_params.polynomial_degree
+    p_degree = bk.tgsw_params.tlwe_params.polynomial_degree
 
     # Modulus switching
     bara = decode_message.(x.a, p_degree * 2)

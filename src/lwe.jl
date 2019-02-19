@@ -13,16 +13,7 @@ struct LweKey
         new(params, rand_uniform_bool(rng, params.len))
     end
 
-    # extractions Ring Lwe . Lwe
-    function LweKey(params::LweParams, tlwe_key)
-        @assert isa(tlwe_key, TLweKey) # (can't do it in the signature because it's declared later)
-        tlwe_params = tlwe_key.params
-        @assert params.len == tlwe_params.mask_size * tlwe_params.polynomial_degree
-
-        key = vcat([poly.coeffs for poly in tlwe_key.key]...)
-
-        new(params, key)
-    end
+    LweKey(params::LweParams, key::Array{Int32, 1}) = new(params, key)
 end
 
 
@@ -31,7 +22,6 @@ mutable struct LweSample
     b :: Torus32
     current_variance :: Float64 # average noise of the sample
 
-    LweSample(params::LweParams) = new(Array{Torus32}(undef, params.len), 0, 0.)
     LweSample(a::Array{Torus32, 1}, b::Torus32, cv::Float64) = new(a, b, cv)
 end
 
