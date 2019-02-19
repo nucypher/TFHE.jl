@@ -10,7 +10,7 @@ struct LweKey
     key :: Array{Int32, 1}
 
     function LweKey(rng::AbstractRNG, params::LweParams)
-        new(params, rand_uniform_int32(rng, params.len))
+        new(params, rand_uniform_bool(rng, params.len))
     end
 
     # extractions Ring Lwe . Lwe

@@ -1,7 +1,7 @@
 const Torus32 = Int32
 
 
-function rand_uniform_int32(rng::AbstractRNG, dims...)
+function rand_uniform_bool(rng::AbstractRNG, dims...)
     rand(rng, Int32(0):Int32(1), dims...)
 end
 
@@ -16,42 +16,38 @@ function rand_gaussian_float(rng::AbstractRNG, sigma::Float64, dims...)
 end
 
 
-# Gaussian sample centered in message, with standard deviation sigma
+# Gaussian sample centered in `message`, with standard deviation `sigma`
 function rand_gaussian_torus32(rng::AbstractRNG, message::Torus32, sigma::Float64, dims...)
-    # Attention: all the implementation will use the stdev instead of the gaussian fourier param
     err = randn(rng, dims...) .* sigma
     message .+ dtot32.(err)
 end
 
 
-# Used to approximate the phase to the nearest message possible in the message space
-# The constant Msize will indicate on which message space we are working (how many messages possible)
-#
-# "travailler sur 63 bits au lieu de 64, car dans nos cas pratiques, c'est plus précis"
-function decode_message(phase::Torus32, Msize::Integer)
-    interv::UInt64 = ((UInt64(1) << 63)/Msize) * UInt64(2) # width of each intervall
-    half_interval::UInt64 = interv / 2 # begin of the first intervall
-    phase64::UInt64 = (UInt64(unsigned(phase)) << 32) + half_interval
-    # floor to the nearest multiples of interv
-    trunc(Int32, signed(div(phase64, interv)))
-end
-
-# Used to approximate the phase to the nearest message possible in the message space
-# The constant Msize will indicate on which message space we are working (how many messages possible)
-#
-# "travailler sur 63 bits au lieu de 64, car dans nos cas pratiques, c'est plus précis"
-function encode_message(mu::Integer, Msize::Integer)
-    interv::UInt64 = ((UInt64(1) << 63) / Msize) * UInt64(2) # width of each intervall
-    phase64::UInt64 = mu * interv
-    # floor to the nearest multiples of interv
-    Torus32(signed(UInt32(phase64 >> 32)))
+"""
+Approximates the phase to the nearest message in range `[-message_space/2, message_space/2)`
+in a space with `message_space` elements.
+`message_space` must be a power of 2.
+"""
+function decode_message(phase::Torus32, message_space::Int)
+    log2_ms = trailing_zeros(message_space)
+    (phase + (one(Torus32) << (32 - log2_ms - 1))) >> (32 - log2_ms)
 end
 
 
-# from double to Torus32
-# TODO: technically, trunc() is not needed, since `d` is limited to [-0.5...0.5] anyway
+"""
+Returns the phase of the given message in range `[-message_space/2, message_space/2)`
+in a space with `message_space` elements.
+`message_space` must be a power of 2.
+"""
+function encode_message(mu::Int, message_space::Int)
+    log2_ms = trailing_zeros(message_space)
+    Torus32(mu) << (32 - log2_ms)
+end
+
+
+"""
+Converts a double in range `[-0.5, 0.5)` to `Torus32`.
+"""
 function dtot32(d::Float64)
-    trunc(Int32, (d - trunc(d)) * 2^32)
+    trunc(Int32, d * 2^32)
 end
-
-

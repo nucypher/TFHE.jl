@@ -1,6 +1,3 @@
-const Torus32 = Int32
-
-
 IntPolynomial = Polynomial{Int32}
 TorusPolynomial = Polynomial{Torus32}
 

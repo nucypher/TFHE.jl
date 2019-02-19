@@ -19,7 +19,7 @@ struct TLweKey
 
     function TLweKey(rng::AbstractRNG, params::TLweParams)
         key = [
-            int_polynomial(rand_uniform_int32(rng, params.polynomial_degree))
+            int_polynomial(rand_uniform_bool(rng, params.polynomial_degree))
             for i in 1:params.mask_size]
         new(params, key)
     end
