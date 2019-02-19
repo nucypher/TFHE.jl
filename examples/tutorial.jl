@@ -22,7 +22,6 @@ function encrypt()
 
     rng = MersenneTwister(123)
     secret_key, cloud_key = tfhe_key_pair(rng)
-    params = tfhe_parameters(secret_key)
 
     # generate encrypt the 16 bits of 2017
     plaintext1 = UInt16(2017)
@@ -70,10 +69,6 @@ end
 
 
 function process(cloud_key, ciphertext1, ciphertext2)
-
-    # if necessary, the params are inside the key
-    params = tfhe_parameters(cloud_key)
-
     # do some operations on the ciphertexts: here, we will compute the
     # minimum of the two
     encrypted_minimum(cloud_key, ciphertext1, ciphertext2)
@@ -81,10 +76,6 @@ end
 
 
 function verify(secret_key, answer)
-
-    # if necessary, the params are inside the key
-    params = tfhe_parameters(secret_key)
-
     # decrypt and rebuild the 16-bit plaintext answer
     bits = [tfhe_decrypt_bit(secret_key, answer[i]) for i in 1:length(answer)]
     int_answer = bits_to_int(UInt16, bits)

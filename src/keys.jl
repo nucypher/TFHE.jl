@@ -60,10 +60,6 @@ struct TFHECloudKey
 end
 
 
-tfhe_parameters(key::TFHESecretKey) = key.params
-tfhe_parameters(key::TFHECloudKey) = key.params
-
-
 function tfhe_key_pair(rng::AbstractRNG, params::Union{Nothing, TFHEParameters}=nothing)
     if params === nothing
         params = TFHEParameters()
