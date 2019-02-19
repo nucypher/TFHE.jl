@@ -25,14 +25,14 @@ gate_test_ids = [gate_test[1] for gate_test in gate_tests]
 
 @testcase "gate" for gate_test in (gate_tests => gate_test_ids)
     rng = MersenneTwister(123)
-    secret_key, cloud_key = tfhe_key_pair(rng)
+    secret_key, cloud_key = make_key_pair(rng)
 
     _, gate, nargs, reference = gate_test
 
     for bits in product([(false, true) for i in 1:nargs]...)
-        ebits = [tfhe_encrypt_bit(rng, secret_key, b) for b in bits]
+        ebits = [encrypt(rng, secret_key, b) for b in bits]
         eres = gate(cloud_key, ebits...)
-        res = tfhe_decrypt_bit(secret_key, eres)
+        res = decrypt(secret_key, eres)
         ref_res = reference(bits...)
         @test res == ref_res
     end

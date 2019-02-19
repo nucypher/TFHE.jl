@@ -31,23 +31,23 @@ struct TFHEParameters
 end
 
 
-struct TFHESecretKey
+struct SecretKey
     params :: TFHEParameters
     lwe_key :: LweKey
 
-    function TFHESecretKey(rng::AbstractRNG, params::TFHEParameters)
+    function SecretKey(rng::AbstractRNG, params::TFHEParameters)
         lwe_key = LweKey(rng, params.in_out_params)
         new(params, lwe_key)
     end
 end
 
 
-struct TFHECloudKey
+struct CloudKey
     params :: TFHEParameters
     bootstrap_key :: BootstrapKey
     keyswitch_key :: KeyswitchKey
 
-    function TFHECloudKey(rng::AbstractRNG, secret_key::TFHESecretKey)
+    function CloudKey(rng::AbstractRNG, secret_key::SecretKey)
         params = secret_key.params
         tgsw_key = TGswKey(rng, params.tgsw_params)
 
@@ -60,24 +60,24 @@ struct TFHECloudKey
 end
 
 
-function tfhe_key_pair(rng::AbstractRNG, params::Union{Nothing, TFHEParameters}=nothing)
+function make_key_pair(rng::AbstractRNG, params::Union{Nothing, TFHEParameters}=nothing)
     if params === nothing
         params = TFHEParameters()
     end
-    secret_key = TFHESecretKey(rng, params)
-    cloud_key = TFHECloudKey(rng, secret_key)
+    secret_key = SecretKey(rng, params)
+    cloud_key = CloudKey(rng, secret_key)
     secret_key, cloud_key
 end
 
 
 # encrypts a boolean
-function tfhe_encrypt_bit(rng::AbstractRNG, key::TFHESecretKey, message::Bool)
+function encrypt(rng::AbstractRNG, key::SecretKey, message::Bool)
     alpha = key.params.in_out_params.min_noise # TODO: specify noise
     lwe_encrypt(rng, encode_message(message ? 1 : -1, 8), alpha, key.lwe_key)
 end
 
 
 # decrypts a boolean
-function tfhe_decrypt_bit(key::TFHESecretKey, sample::TFHEEncryptedBit)
+function decrypt(key::SecretKey, sample::LweSample)
     lwe_phase(sample, key.lwe_key) > 0
 end

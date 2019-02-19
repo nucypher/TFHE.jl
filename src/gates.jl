@@ -6,54 +6,54 @@ return a (bootstrapped) LWE sample with message in {-1/8, 1/8}, noise<1/16
 =#
 
 
-function gate_nand(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_nand(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(1, 8), in_out_params) - x - y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
 end
 
 
-function gate_or(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_or(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(1, 8), in_out_params) + x + y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
 end
 
 
-function gate_and(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_and(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(-1, 8), in_out_params) + x + y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
 end
 
 
-function gate_xor(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_xor(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(1, 4), in_out_params) + (x + y) * 2
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
 end
 
 
-function gate_xnor(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_xnor(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(-1, 4), in_out_params) - (x + y) * 2
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
 end
 
 
-function gate_not(ck::TFHECloudKey, x::TFHEEncryptedBit)
+function gate_not(ck::CloudKey, x::LweSample)
     # Not bootstrapped, the cloud key is just for the sake of interface uniformity.
     -x
 end
 
 
-function gate_constant(ck::TFHECloudKey, value::Bool)
+function gate_constant(ck::CloudKey, value::Bool)
     in_out_params = ck.params.in_out_params
     lwe_noiseless_trivial(encode_message(value ? 1 : -1, 8), in_out_params)
 end
 
 
-function gate_nor(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_nor(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(-1, 8), in_out_params) - x - y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
@@ -63,7 +63,7 @@ end
 """
 ANDNY(x, y) == AND(NOT(x), y)
 """
-function gate_andny(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_andny(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(-1, 8), in_out_params) - x + y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
@@ -73,7 +73,7 @@ end
 """
 ANDYN(x, y) == AND(x, NOT(y))
 """
-function gate_andyn(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_andyn(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(-1, 8), in_out_params) + x - y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
@@ -83,7 +83,7 @@ end
 """
 ORNY(x, y) == OR(NOT(x), y)
 """
-function gate_orny(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_orny(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(1, 8), in_out_params) - x + y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
@@ -93,7 +93,7 @@ end
 """
 ORYN(x, y) == OR(x, NOT(y))
 """
-function gate_oryn(ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit)
+function gate_oryn(ck::CloudKey, x::LweSample, y::LweSample)
     in_out_params = ck.params.in_out_params
     result = lwe_noiseless_trivial(encode_message(1, 8), in_out_params) + x - y
     bootstrap(ck.bootstrap_key, ck.keyswitch_key, encode_message(1, 8), result)
@@ -103,8 +103,7 @@ end
 """
 MUX(x, y, z) == x ? y : z == OR(AND(x, y), AND(NOT(x), z))
 """
-function gate_mux(
-        ck::TFHECloudKey, x::TFHEEncryptedBit, y::TFHEEncryptedBit, z::TFHEEncryptedBit)
+function gate_mux(ck::CloudKey, x::LweSample, y::LweSample, z::LweSample)
 
     in_out_params = ck.params.in_out_params
     extracted_params = ck.params.tgsw_params.tlwe_params.extracted_lweparams

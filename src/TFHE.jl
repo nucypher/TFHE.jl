@@ -17,16 +17,16 @@ include("tlwe.jl")
 include("tgsw.jl")
 
 include("keyswitch.jl")
+
 include("bootstrap.jl")
 
 include("api.jl")
-export tfhe_key_pair
-export tfhe_parameters
-export TFHEEncryptedBit
-export TFHESecretKey
-export TFHECloudKey
-export tfhe_encrypt_bit
-export tfhe_decrypt_bit
+export make_key_pair
+export LweSample
+export SecretKey
+export CloudKey
+export encrypt
+export decrypt
 
 include("gates.jl")
 export gate_nand

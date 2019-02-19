@@ -25,8 +25,6 @@ mutable struct LweSample
     LweSample(a::Array{Torus32, 1}, b::Torus32, cv::Float64) = new(a, b, cv)
 end
 
-const TFHEEncryptedBit = LweSample
-
 
 """
 This function encrypts message by using key, with stdev alpha
