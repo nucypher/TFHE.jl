@@ -1,5 +1,5 @@
 struct LweParams
-    len :: Int
+    size :: Int
     min_noise :: Float64
     max_noise :: Float64
 end
@@ -10,7 +10,7 @@ struct LweKey
     key :: Array{Int32, 1}
 
     function LweKey(rng::AbstractRNG, params::LweParams)
-        new(params, rand_uniform_bool(rng, params.len))
+        new(params, rand_uniform_bool(rng, params.size))
     end
 
     LweKey(params::LweParams, key::Array{Int32, 1}) = new(params, key)
@@ -30,7 +30,7 @@ end
 This function encrypts message by using key, with stdev alpha
 """
 function lwe_encrypt(rng::AbstractRNG, message::Torus32, alpha::Float64, key::LweKey)
-    a = rand_uniform_torus32(rng, key.params.len)
+    a = rand_uniform_torus32(rng, key.params.size)
     b = rand_gaussian_torus32(rng, message, alpha) + reduce(+, a .* key.key)
     LweSample(a, b, alpha^2)
 end
@@ -41,7 +41,7 @@ This function encrypts a message by using key and a given noise value
 """
 function lwe_encrypt(
         rng::AbstractRNG, message::Torus32, noise::Float64, alpha::Float64, key::LweKey)
-    a = rand_uniform_torus32(rng, key.params.len)
+    a = rand_uniform_torus32(rng, key.params.size)
     b = message + dtot32(noise) + reduce(+, a .* key.key)
     LweSample(a, b, alpha^2)
 end
@@ -53,7 +53,7 @@ lwe_phase(x::LweSample, key::LweKey) = x.b - reduce(+, x.a .* key.key)
 
 # result = (0,mu)
 lwe_noiseless_trivial(mu::Torus32, params::LweParams) =
-    LweSample(zeros(Torus32, params.len), mu, 0.)
+    LweSample(zeros(Torus32, params.size), mu, 0.)
 
 
 Base.:+(x::LweSample, y::LweSample) =

@@ -23,13 +23,13 @@ struct KeyswitchKey
 
         in_key = extract_lwe_key(tgsw_key.tlwe_key)
         out_params = out_key.params
-        lwe_len = in_key.params.len
+        lwe_size = in_key.params.size
 
         base = 1 << log2_base
 
         # Generate centred noises
         alpha = out_key.params.min_noise
-        noise = rand_gaussian_float(rng, alpha, lwe_len, decomp_length, base-1)
+        noise = rand_gaussian_float(rng, alpha, lwe_size, decomp_length, base-1)
         noise .-= sum(noise) / length(noise) # recentre
 
         # generate the keyswitch key
@@ -39,9 +39,9 @@ struct KeyswitchKey
         message(i,j,h) = (in_key.key[i] * Int32(h)) << (32 - j * log2_base)
         ks = [
             lwe_encrypt(rng, message(i,j,h), noise[i,j,h], alpha, out_key)
-            for h in 1:base-1, j in 1:decomp_length, i in 1:lwe_len]
+            for h in 1:base-1, j in 1:decomp_length, i in 1:lwe_size]
 
-        new(lwe_len, decomp_length, log2_base, out_params, ks)
+        new(lwe_size, decomp_length, log2_base, out_params, ks)
     end
 end
 

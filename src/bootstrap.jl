@@ -8,9 +8,9 @@ struct BootstrapKey
         accum_params = tgsw_params.tlwe_params
 
         alpha = accum_params.min_noise
-        lwe_len = lwe_key.params.len
+        lwe_size = lwe_key.params.size
 
-        bk = [tgsw_encrypt(rng, lwe_key.key[i], alpha, tgsw_key) for i in 1:lwe_len]
+        bk = [tgsw_encrypt(rng, lwe_key.key[i], alpha, tgsw_key) for i in 1:lwe_size]
         transformed_bk = forward_transform.(bk)
 
         new(tgsw_params, transformed_bk)
