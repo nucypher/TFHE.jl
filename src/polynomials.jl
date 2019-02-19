@@ -43,7 +43,7 @@ Sacrificing some readability for a big speed improvement.
 
 struct ForwardTransformPlan
 
-    plan :: FFTW.Plan
+    plan :: Plan
     coeffs :: Array{Complex{Float64}, 1}
     buffer :: Array{Complex{Float64}, 1}
 
@@ -60,7 +60,7 @@ end
 
 struct InverseTransformPlan
 
-    plan :: FFTW.Plan
+    plan :: Plan
     coeffs :: Array{Complex{Float64}, 1}
     complex_buffer :: Array{Complex{Float64}, 1}
     int_buffer :: Array{Torus32, 1}

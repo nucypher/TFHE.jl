@@ -1,8 +1,10 @@
 module TFHE
-using Random
-using FFTW
-using DarkIntegers
-using LinearAlgebra
+
+using Random: AbstractRNG
+using LinearAlgebra: mul!
+using FFTW: plan_fft, plan_ifft, Plan
+import DarkIntegers: shift_polynomial
+using DarkIntegers: Polynomial
 
 include("numeric-functions.jl")
 

@@ -92,7 +92,7 @@ Base.:-(x::TLweSample, y::TLweSample) =
     TLweSample(x.a .- y.a, x.current_variance + y.current_variance)
 
 
-DarkIntegers.shift_polynomial(s::TLweSample, shift::Integer) =
+shift_polynomial(s::TLweSample, shift::Integer) =
     TLweSample(shift_polynomial.(s.a, shift), s.current_variance)
 
 
