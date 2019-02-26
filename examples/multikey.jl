@@ -58,13 +58,9 @@ struct SecretKey
 
     params :: MKTFHEParams
     lwe_key :: LweKey
-    rlwe_key :: TGswKey
 
     function SecretKey(rng, params::MKTFHEParams)
-        new(
-            params,
-            LweKey(rng, params.in_out_params),
-            TGswKey(rng, params.tgsw_params))
+        new(params, LweKey(rng, params.in_out_params))
     end
 end
 
@@ -89,7 +85,7 @@ struct PublicKey
     params :: MKTFHEParams
     b :: Array{TorusPolynomial, 1}
 
-    function PublicKey(rng, sk::SecretKey, shared::SharedKey)
+    function PublicKey(rng, sk::SecretKey, tgsw_key::TGswKey, shared::SharedKey)
 
         params = sk.params
         decomp_length = params.tgsw_params.decomp_length
@@ -98,7 +94,8 @@ struct PublicKey
         # The right part of the public key is `b_i = e_i + a*s_i`,
         # where `a` is shared between the parties
         # TODO: [1] was omitted in the original! It works while k=1, but will fail otherwise
-        b = [sk.rlwe_key.tlwe_key.key[1] * shared.a[i] + torus_polynomial(
+        # TODO: this is basically tgsw_encrypt_zero() for mask_size=1
+        b = [tgsw_key.tlwe_key.key[1] * shared.a[i] + torus_polynomial(
                     rand_gaussian_torus32(rng, zero(Int32), params.stddev_rlwe, p_degree))
             for i in 1:decomp_length]
 
@@ -200,7 +197,7 @@ end
 # Similar to tgsw_encrypt()/tlwe_encrypt(), except the public key is supplied externally.
 function mk_tgsw_encrypt(
         rng, message::Int32, alpha::Float64,
-        secret_key::SecretKey, shared_key::SharedKey, public_key::PublicKey)
+        secret_key::SecretKey, tgsw_key::TGswKey, shared_key::SharedKey, public_key::PublicKey)
 
     tgsw_params = public_key.params.tgsw_params
     p_degree = tgsw_params.tlwe_params.polynomial_degree
@@ -220,7 +217,7 @@ function mk_tgsw_encrypt(
         result.c0[i] = (
             torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
             + message * tgsw_params.gadget_values[i]
-            + secret_key.rlwe_key.tlwe_key.key[1] * result.c1[i])
+            + tgsw_key.tlwe_key.key[1] * result.c1[i])
     end
 
 
@@ -250,7 +247,7 @@ function mk_tgsw_encrypt(
         result.f0[i] = (
             torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
             + r * tgsw_params.gadget_values[i]
-            + secret_key.rlwe_key.tlwe_key.key[1] * result.f1[i])
+            + tgsw_key.tlwe_key.key[1] * result.f1[i])
     end
 
     result.current_variance = alpha^2
@@ -362,7 +359,8 @@ struct BootstrapKeyPart
     public_key :: PublicKey
 
     function BootstrapKeyPart(
-            rng, secret_key::SecretKey, shared_key::SharedKey, public_key::PublicKey)
+            rng, secret_key::SecretKey, tgsw_key::TGswKey,
+            shared_key::SharedKey, public_key::PublicKey)
 
         tgsw_params = public_key.params.tgsw_params
         in_out_params = secret_key.params.in_out_params
@@ -371,7 +369,7 @@ struct BootstrapKeyPart
         new(tgsw_params,
             [mk_tgsw_encrypt(
                 rng, secret_key.lwe_key.key[j],
-                tgsw_params.tlwe_params.min_noise, secret_key, shared_key, public_key)
+                tgsw_params.tlwe_params.min_noise, secret_key, tgsw_key, shared_key, public_key)
                 for j in 1:n],
             public_key)
     end
@@ -388,13 +386,14 @@ struct CloudKeyPart
 
     function CloudKeyPart(rng, secret_key::SecretKey, shared_key::SharedKey)
         params = secret_key.params
-        pk = PublicKey(rng, secret_key, shared_key)
+        tgsw_key = TGswKey(rng, params.tgsw_params)
+        pk = PublicKey(rng, secret_key, tgsw_key, shared_key)
         new(
             params,
-            BootstrapKeyPart(rng, secret_key, shared_key, pk),
+            BootstrapKeyPart(rng, secret_key, tgsw_key, shared_key, pk),
             KeyswitchKey(
                 rng, params.ks_decomp_length, params.ks_log2_base,
-                secret_key.lwe_key, secret_key.rlwe_key))
+                secret_key.lwe_key, tgsw_key))
     end
 end
 
