@@ -1,7 +1,5 @@
 struct LweParams
     size :: Int
-    min_noise :: Float64
-    max_noise :: Float64
 end
 
 
@@ -18,11 +16,13 @@ end
 
 
 mutable struct LweSample
+    params :: LweParams
     a :: Array{Torus32, 1} # the n coefs of the mask
     b :: Torus32
     current_variance :: Float64 # average noise of the sample
 
-    LweSample(a::Array{Torus32, 1}, b::Torus32, cv::Float64) = new(a, b, cv)
+    LweSample(params::LweParams, a::Array{Torus32, 1}, b::Torus32, cv::Float64) =
+        new(params, a, b, cv)
 end
 
 
@@ -30,9 +30,10 @@ end
 This function encrypts message by using key, with stdev alpha
 """
 function lwe_encrypt(rng::AbstractRNG, message::Torus32, alpha::Float64, key::LweKey)
-    a = rand_uniform_torus32(rng, key.params.size)
+    lwe_params = key.params
+    a = rand_uniform_torus32(rng, lwe_params.size)
     b = rand_gaussian_torus32(rng, message, alpha) + reduce(+, a .* key.key)
-    LweSample(a, b, alpha^2)
+    LweSample(lwe_params, a, b, alpha^2)
 end
 
 
@@ -41,9 +42,10 @@ This function encrypts a message by using key and a given noise value
 """
 function lwe_encrypt(
         rng::AbstractRNG, message::Torus32, noise::Float64, alpha::Float64, key::LweKey)
-    a = rand_uniform_torus32(rng, key.params.size)
+    lwe_params = key.params
+    a = rand_uniform_torus32(rng, lwe_params.size)
     b = message + dtot32(noise) + reduce(+, a .* key.key)
-    LweSample(a, b, alpha^2)
+    LweSample(lwe_params, a, b, alpha^2)
 end
 
 
@@ -53,22 +55,22 @@ lwe_phase(x::LweSample, key::LweKey) = x.b - reduce(+, x.a .* key.key)
 
 # result = (0,mu)
 lwe_noiseless_trivial(mu::Torus32, params::LweParams) =
-    LweSample(zeros(Torus32, params.size), mu, 0.)
+    LweSample(params, zeros(Torus32, params.size), mu, 0.)
 
 
 Base.:+(x::LweSample, y::LweSample) =
-    LweSample(x.a .+ y.a, x.b + y.b, x.current_variance + y.current_variance)
+    LweSample(x.params, x.a .+ y.a, x.b + y.b, x.current_variance + y.current_variance)
 
 
 Base.:-(x::LweSample, y::LweSample) =
-    LweSample(x.a .- y.a, x.b - y.b, x.current_variance + y.current_variance)
+    LweSample(x.params, x.a .- y.a, x.b - y.b, x.current_variance + y.current_variance)
 
-Base.:-(x::LweSample) = LweSample(-x.a, -x.b, x.current_variance)
+Base.:-(x::LweSample) = LweSample(x.params, -x.a, -x.b, x.current_variance)
 
 
 function Base.:*(x::LweSample, y::Integer)
     ty = Torus32(y) # to make multiplication preserve the type
-    LweSample(x.a .* ty, x.b * ty, x.current_variance * y^2)
+    LweSample(x.params, x.a .* ty, x.b * ty, x.current_variance * y^2)
 end
 
 Base.:*(x::Integer, y::LweSample) = y * x

@@ -1,28 +1,25 @@
 struct BootstrapKey
     tgsw_params :: TGswParams # params of the Gsw elems in bk. key: s"
+    tlwe_params :: TLweParams
     key :: Array{TransformedTGswSample, 1} # the bootstrapping key (s->s")
 
-    function BootstrapKey(rng::AbstractRNG, lwe_key::LweKey, tgsw_key::TGswKey)
+    function BootstrapKey(
+            rng::AbstractRNG, alpha::Float64, lwe_key::LweKey,
+            tlwe_key::TLweKey, tgsw_params::TGswParams)
 
-        tgsw_params = tgsw_key.params
-        accum_params = tgsw_params.tlwe_params
-
-        alpha = accum_params.min_noise
-        lwe_size = lwe_key.params.size
-
-        bk = [tgsw_encrypt(rng, lwe_key.key[i], alpha, tgsw_key) for i in 1:lwe_size]
+        tlwe_params = tlwe_key.params
+        bk = [tgsw_encrypt(rng, key_elem, alpha, tlwe_key, tgsw_params) for key_elem in lwe_key.key]
         transformed_bk = forward_transform.(bk)
 
-        new(tgsw_params, transformed_bk)
+        new(tgsw_params, tlwe_params, transformed_bk)
     end
 end
 
 
-function mux_rotate(
-        accum::TLweSample, bki::TransformedTGswSample, barai::Int32, bk_params::TGswParams)
+function mux_rotate(accum::TLweSample, bki::TransformedTGswSample, barai::Int32)
     # accum += BK_i * [(X^bar{a}_i-1) * accum]
     temp = shift_polynomial(accum, barai) - accum
-    accum + tgsw_extern_mul(temp, bki, bk_params)
+    accum + tgsw_extern_mul(temp, bki)
 end
 
 
@@ -35,7 +32,7 @@ end
 function blind_rotate(accum::TLweSample, bk::BootstrapKey, bara::Array{Int32, 1})
     for i in 1:length(bk.key)
         if bara[i] != 0
-            accum = mux_rotate(accum, bk.key[i], bara[i], bk.tgsw_params)
+            accum = mux_rotate(accum, bk.key[i], bara[i])
         end
     end
     accum
@@ -53,14 +50,12 @@ end
 function blind_rotate_and_extract(
         v::TorusPolynomial, bk::BootstrapKey, barb::Int32, bara::Array{Int32, 1})
 
-    accum_params = bk.tgsw_params.tlwe_params
-
     # testvector = X^{2N-barb}*v == X^{-barb}*v
     testvectbis = shift_polynomial(v, -barb)
 
-    accum = tlwe_noiseless_trivial(testvectbis, accum_params)
+    accum = tlwe_noiseless_trivial(testvectbis, bk.tlwe_params)
     accum = blind_rotate(accum, bk, bara)
-    tlwe_extract_sample(accum, accum_params)
+    tlwe_extract_sample(accum)
 end
 
 
@@ -73,7 +68,7 @@ end
 =#
 function bootstrap_wo_keyswitch(bk::BootstrapKey, mu::Torus32, x::LweSample)
 
-    p_degree = bk.tgsw_params.tlwe_params.polynomial_degree
+    p_degree = bk.tlwe_params.polynomial_degree
 
     # Modulus switching
     bara = decode_message.(x.a, p_degree * 2)

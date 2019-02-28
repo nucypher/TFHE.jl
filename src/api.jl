@@ -1,68 +1,83 @@
-struct TFHEParameters
-    ks_decomp_length :: Int
-    ks_log2_base :: Int
-    in_out_params :: LweParams
-    tgsw_params :: TGswParams
+struct SchemeParameters
 
-    function TFHEParameters()
-        # the parameters are only implemented for about 128bit of security!
+    lwe_size :: Int
+    lwe_noise_stddev :: Float64
 
-        lwe_size = 500
+    tlwe_polynomial_degree :: Int
+    tlwe_mask_size :: Int
+    tlwe_noise_stddev :: Float64
 
-        tlwe_polynomial_degree = 1024
-        tlwe_mask_size = 1
+    bs_decomp_length :: Int # bootstrap decomposition length
+    bs_log2_base :: Int # bootstrap log2(decomposition_base)
+    bs_noise_stddev :: Float64 # bootstrap standard deviation
 
-        bs_decomp_length = 2 # bootstrap decomposition length
-        bs_log2_base = 10 # bootstrap log2(decomposition_base)
+    ks_decomp_length :: Int # keyswitch decomposition length
+    ks_log2_base :: Int # keyswitch log2(decomposition base)
+    ks_noise_stddev :: Float64 # keyswitch noise standard deviation
 
-        ks_decomp_length = 8 # keyswitch decomposition length (the precision of the keyswitch)
-        ks_log2_base = 2 # keyswitch log2(decomposition base)
-
-        ks_stdev = 1/2^15 * sqrt(2 / pi) # keyswitch minimal standard deviation
-        bs_stdev = 9e-9 * sqrt(2 / pi) # bootstrap minimal standard deviation
-        max_stdev = 1/2^4 / 4 * sqrt(2 / pi) # max standard deviation for a 1/4 msg space
-
-        params_in = LweParams(lwe_size, ks_stdev, max_stdev)
-        params_accum = TLweParams(tlwe_polynomial_degree, tlwe_mask_size, bs_stdev, max_stdev)
-        params_bs = TGswParams(bs_decomp_length, bs_log2_base, params_accum)
-
-        new(ks_decomp_length, ks_log2_base, params_in, params_bs)
-    end
+    max_parties :: Int
 end
 
 
-struct SecretKey
-    params :: TFHEParameters
-    lwe_key :: LweKey
+# Parameters from I. Chillotti, N. Gama, M. Georgieva, and M. Izabachene,
+# "Faster Fully Homomorphic Encryption: Bootstrapping in Less Than 0.1 Seconds"
+tfhe_parameters(; tlwe_mask_size::Int=1) = SchemeParameters(
+    # TODO: LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
+    # (maximum standard deviation for a 1/4 msg space)
+    500, 1/2^15 * sqrt(2 / pi), # LWE parameters
+    1024, tlwe_mask_size, 9e-9 * sqrt(2 / pi), # TLWE parameters
+    2, 10, 9e-9 * sqrt(2 / pi), # bootstrap parameters
+    8, 2, 1/2^15 * sqrt(2 / pi), # keyswitch parameters
+    1 # Only used for single-party encryption
+    )
 
-    function SecretKey(rng::AbstractRNG, params::TFHEParameters)
-        lwe_key = LweKey(rng, params.in_out_params)
+
+lwe_parameters(params::SchemeParameters) =
+    LweParams(params.lwe_size)
+
+tlwe_parameters(params::SchemeParameters) =
+    TLweParams(params.tlwe_polynomial_degree, params.tlwe_mask_size)
+
+tgsw_parameters(params::SchemeParameters) =
+    TGswParams(params.bs_decomp_length, params.bs_log2_base)
+
+keyswitch_parameters(params::SchemeParameters) =
+    KeyswitchParameters(params.ks_decomp_length, params.ks_log2_base)
+
+
+struct SecretKey
+    params :: SchemeParameters
+    key :: LweKey
+
+    function SecretKey(rng::AbstractRNG, params::SchemeParameters)
+        lwe_key = LweKey(rng, lwe_parameters(params))
         new(params, lwe_key)
     end
 end
 
 
 struct CloudKey
-    params :: TFHEParameters
+    params :: SchemeParameters
     bootstrap_key :: BootstrapKey
     keyswitch_key :: KeyswitchKey
 
     function CloudKey(rng::AbstractRNG, secret_key::SecretKey)
         params = secret_key.params
-        tgsw_key = TGswKey(rng, params.tgsw_params)
+        tlwe_key = TLweKey(rng, tlwe_parameters(params))
 
-        bs_key = BootstrapKey(rng, secret_key.lwe_key, tgsw_key)
+        bs_key = BootstrapKey(
+            rng, params.bs_noise_stddev, secret_key.key, tlwe_key, tgsw_parameters(params))
         ks_key = KeyswitchKey(
-            rng, params.ks_decomp_length, params.ks_log2_base, secret_key.lwe_key, tgsw_key)
+            rng, params.ks_noise_stddev, keyswitch_parameters(params), secret_key.key, tlwe_key)
 
         new(secret_key.params, bs_key, ks_key)
     end
 end
 
 
-function make_key_pair(rng::AbstractRNG, params::Union{Nothing, TFHEParameters}=nothing)
+function make_key_pair(rng::AbstractRNG, params::Union{Nothing, SchemeParameters}=nothing)
     if params === nothing
-        params = TFHEParameters()
+        params = tfhe_parameters()
     end
     secret_key = SecretKey(rng, params)
     cloud_key = CloudKey(rng, secret_key)
@@ -72,12 +87,12 @@ end
 
 # encrypts a boolean
 function encrypt(rng::AbstractRNG, key::SecretKey, message::Bool)
-    alpha = key.params.in_out_params.min_noise # TODO: specify noise
-    lwe_encrypt(rng, encode_message(message ? 1 : -1, 8), alpha, key.lwe_key)
+    alpha = key.params.lwe_noise_stddev
+    lwe_encrypt(rng, encode_message(message ? 1 : -1, 8), alpha, key.key)
 end
 
 
 # decrypts a boolean
 function decrypt(key::SecretKey, sample::LweSample)
-    lwe_phase(sample, key.lwe_key) > 0
+    lwe_phase(sample, key.key) > 0
 end

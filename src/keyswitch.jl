@@ -1,35 +1,31 @@
-# extractions Ring Lwe . Lwe
-function extract_lwe_key(tlwe_key::TLweKey)
-    tlwe_params = tlwe_key.params
-    lwe_params = tlwe_params.extracted_lweparams
-
-    key = vcat([poly.coeffs for poly in tlwe_key.key]...)
-
-    LweKey(lwe_params, key)
+struct KeyswitchParameters
+    decomp_length :: Int # decomposition length
+    log2_base :: Int # log2(decomposition base)
 end
 
 
 struct KeyswitchKey
 
-    input_size :: Int # length of the input key: s'
-    decomp_length :: Int # decomposition length
-    log2_base :: Int # log_2(base)
-    out_params :: LweParams # params of the output key s
+    params :: KeyswitchParameters
+    in_lwe_params :: LweParams
+    out_lwe_params :: LweParams
     key :: Array{LweSample, 3} # the keyswitch elements: a (base-1, n, l) matrix
 
     function KeyswitchKey(
-            rng::AbstractRNG, decomp_length::Int, log2_base::Int,
-            out_key::LweKey, tgsw_key::TGswKey)
+            rng::AbstractRNG, alpha::Float64,
+            params::KeyswitchParameters, out_key::LweKey, tlwe_key::TLweKey)
 
-        in_key = extract_lwe_key(tgsw_key.tlwe_key)
-        out_params = out_key.params
-        lwe_size = in_key.params.size
+        in_key = extract_lwe_key(tlwe_key)
+        in_lwe_params = in_key.params
+        out_lwe_params = out_key.params
 
+        lwe_size = in_lwe_params.size
+        decomp_length = params.decomp_length
+        log2_base = params.log2_base
         base = 1 << log2_base
 
         # Generate centred noises
-        alpha = out_key.params.min_noise
-        noise = rand_gaussian_float(rng, alpha, lwe_size, decomp_length, base-1)
+        noise = rand_gaussian_float(rng, alpha, lwe_size, decomp_length, base - 1)
         noise .-= sum(noise) / length(noise) # recentre
 
         # generate the keyswitch key
@@ -41,17 +37,17 @@ struct KeyswitchKey
             lwe_encrypt(rng, message(i,j,h), noise[i,j,h], alpha, out_key)
             for h in 1:base-1, j in 1:decomp_length, i in 1:lwe_size]
 
-        new(lwe_size, decomp_length, log2_base, out_params, ks)
+        new(params, in_lwe_params, out_lwe_params, ks)
     end
 end
 
 
 function keyswitch(ks::KeyswitchKey, sample::LweSample)
-    lwe_size = ks.input_size
-    log2_base = ks.log2_base
-    decomp_length = ks.decomp_length
+    lwe_size = ks.in_lwe_params.size
+    log2_base = ks.params.log2_base
+    decomp_length = ks.params.decomp_length
 
-    result = lwe_noiseless_trivial(sample.b, ks.out_params)
+    result = lwe_noiseless_trivial(sample.b, ks.out_lwe_params)
 
     # Round `a` to the closest multiple of `1/2^t`, where `t` is the precision.
     # Since the real torus elements are stored as integers, adding
