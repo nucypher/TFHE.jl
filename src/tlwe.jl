@@ -67,7 +67,7 @@ function tlwe_encrypt_zero(rng::AbstractRNG, alpha::Float64, key::TLweKey)
     a_part = [torus_polynomial(rand_uniform_torus32(rng, polynomial_degree)) for i in 1:mask_size]
     a_last = (
         int_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, polynomial_degree))
-        + sum(key.key .* a_part))
+        + sum(transformed_mul.(key.key, a_part)))
     TLweSample(params, vcat(a_part..., a_last), alpha^2)
 end
 

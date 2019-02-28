@@ -4,7 +4,7 @@ using Random
 using TFHE:
     SchemeParameters, lwe_parameters, tlwe_parameters, tgsw_parameters, keyswitch_parameters,
     SecretKey, TLweKey,
-    Torus32, IntPolynomial, TorusPolynomial, int_polynomial, torus_polynomial,
+    Torus32, IntPolynomial, TorusPolynomial, int_polynomial, torus_polynomial, transformed_mul,
     TransformedTorusPolynomial, inverse_transform,
     encode_message, decode_message,
     rand_uniform_bool, rand_uniform_torus32, rand_gaussian_float, dtot32, rand_gaussian_torus32,
@@ -58,8 +58,10 @@ struct PublicKey
         # where `a` is shared between the parties
         # TODO: [1] was omitted in the original! It works while k=1, but will fail otherwise
         # TODO: this is basically tgsw_encrypt_zero() for mask_size=1
-        b = [tlwe_key.key[1] * shared.a[i] + torus_polynomial(
-                    rand_gaussian_torus32(rng, zero(Int32), params.bs_noise_stddev, p_degree))
+        b = [(
+                transformed_mul(tlwe_key.key[1], shared.a[i])
+                + torus_polynomial(
+                    rand_gaussian_torus32(rng, zero(Int32), params.bs_noise_stddev, p_degree)))
             for i in 1:decomp_length]
 
         new(sk.params, b)
@@ -188,7 +190,7 @@ function mk_tgsw_encrypt(
         result.c0[i] = (
             torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
             + message * tgsw_params.gadget_values[i]
-            + tlwe_key.key[1] * result.c1[i])
+            + transformed_mul(tlwe_key.key[1], result.c1[i]))
     end
 
 
@@ -199,12 +201,12 @@ function mk_tgsw_encrypt(
         result.d1[i] = (
             torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
             + message * tgsw_params.gadget_values[i]
-            + r * shared_key.a[i])
+            + transformed_mul(r, shared_key.a[i]))
 
         # d0 = r*Pkey_party[i] + E0
         result.d0[i] = (
             torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
-            + r * public_key.b[i])
+            + transformed_mul(r, public_key.b[i]))
     end
 
 
@@ -218,7 +220,7 @@ function mk_tgsw_encrypt(
         result.f0[i] = (
             torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
             + r * tgsw_params.gadget_values[i]
-            + tlwe_key.key[1] * result.f1[i])
+            + transformed_mul(tlwe_key.key[1], result.f1[i]))
     end
 
     result.current_variance = alpha^2
@@ -272,9 +274,9 @@ function mk_tgsw_expand(sample::MKTGswUESample, party::Int, public_keys::Array{P
                 Y.coeffs .= 0
                 for l in 1:decomp_length
                     # X = xi[j] = <g^{-1}(b_temp), f0>
-                    X += u[l] * sample.f0[l]
+                    X += transformed_mul(u[l], sample.f0[l])
                     # Y = yi[j] = <g^{-1}(b_temp), f1>
-                    Y += u[l] * sample.f1[l]
+                    Y += transformed_mul(u[l], sample.f1[l])
                 end
 
                 # xi = d0 + xi

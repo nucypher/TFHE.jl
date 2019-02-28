@@ -130,3 +130,15 @@ function inverse_transform(x::TransformedTorusPolynomial)
 
     torus_polynomial(copy(p.int_buffer))
 end
+
+
+"""
+Multiply integer and torus polynomial using convolution in the transformed space.
+
+Warning: current hardcoded transformation method (FFT) has limited precision,
+so the coefficients of the integer polynomial cannot be too large (up to 11 bits),
+if the coefficients of the torus polynomial use all 32 bits.
+"""
+function transformed_mul(x::IntPolynomial, y::TorusPolynomial)
+    inverse_transform(forward_transform(x) * forward_transform(y))
+end
