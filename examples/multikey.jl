@@ -21,7 +21,7 @@ new_torus_polynomial(len) = TorusPolynomial(Array{Torus32}(undef, len), true)
 
 mktfhe_parameters_2party = SchemeParameters(
     500, 0.012467, # LWE parameters
-    1024, 1, 3.29e-10, # TLWE parameters
+    1024, 1, # TLWE parameters
     4, 7, 3.29e-10, # bootstrap parameters
     8, 2, 2.44e-5, # keyswitch parameters
     2
@@ -59,7 +59,7 @@ struct PublicKey
         # TODO: [1] was omitted in the original! It works while k=1, but will fail otherwise
         # TODO: this is basically tgsw_encrypt_zero() for mask_size=1
         b = [tlwe_key.key[1] * shared.a[i] + torus_polynomial(
-                    rand_gaussian_torus32(rng, zero(Int32), params.tlwe_noise_stddev, p_degree))
+                    rand_gaussian_torus32(rng, zero(Int32), params.bs_noise_stddev, p_degree))
             for i in 1:decomp_length]
 
         new(sk.params, b)

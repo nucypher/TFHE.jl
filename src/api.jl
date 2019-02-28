@@ -5,7 +5,6 @@ struct SchemeParameters
 
     tlwe_polynomial_degree :: Int
     tlwe_mask_size :: Int
-    tlwe_noise_stddev :: Float64
 
     bs_decomp_length :: Int # bootstrap decomposition length
     bs_log2_base :: Int # bootstrap log2(decomposition_base)
@@ -25,7 +24,7 @@ tfhe_parameters(; tlwe_mask_size::Int=1) = SchemeParameters(
     # TODO: LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
     # (maximum standard deviation for a 1/4 msg space)
     500, 1/2^15 * sqrt(2 / pi), # LWE parameters
-    1024, tlwe_mask_size, 9e-9 * sqrt(2 / pi), # TLWE parameters
+    1024, tlwe_mask_size, # TLWE parameters
     2, 10, 9e-9 * sqrt(2 / pi), # bootstrap parameters
     8, 2, 1/2^15 * sqrt(2 / pi), # keyswitch parameters
     1 # Only used for single-party encryption
