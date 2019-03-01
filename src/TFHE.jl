@@ -27,6 +27,7 @@ export SecretKey
 export CloudKey
 export encrypt
 export decrypt
+export tfhe_parameters
 
 include("gates.jl")
 export gate_nand
@@ -42,5 +43,20 @@ export gate_andyn
 export gate_orny
 export gate_oryn
 export gate_mux
+
+include("mk_internals.jl")
+
+include("mk_api.jl")
+export SharedKey
+export CloudKeyPart
+export MKCloudKey
+export mk_encrypt
+export mk_decrypt
+export mktfhe_parameters_2party
+export mktfhe_parameters_4party
+export mktfhe_parameters_8party
+
+include("mk_gates.jl")
+export mk_gate_nand
 
 end
