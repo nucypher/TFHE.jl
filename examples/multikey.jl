@@ -24,6 +24,22 @@ mktfhe_parameters_2party = SchemeParameters(
     2
     )
 
+mktfhe_parameters_4party = SchemeParameters(
+    500, 0.012467, # LWE parameters
+    1024, 1, # TLWE parameters
+    5, 6, 3.29e-10, # bootstrap parameters
+    8, 2, 2.44e-5, # keyswitch parameters
+    4
+    )
+
+mktfhe_parameters_8party = SchemeParameters(
+    500, 0.012467, # LWE parameters
+    1024, 1, # TLWE parameters
+    8, 4, 3.29e-10, # bootstrap parameters
+    8, 2, 2.44e-5, # keyswitch parameters
+    8
+    )
+
 
 struct SharedKey
 
@@ -597,9 +613,9 @@ end
 
 
 function main()
-    parties = 2
+    parties = 8
 
-    params = mktfhe_parameters_2party
+    params = mktfhe_parameters_8party
 
     rng = MersenneTwister()
 
