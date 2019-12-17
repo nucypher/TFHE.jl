@@ -48,7 +48,7 @@ struct MKTLweSample
     current_variance :: Float64
 
     function MKTLweSample(
-            params::TLweParams, a::Array{TorusPolynomial, 1}, b::TorusPolynomial,
+            params::TLweParams, a::Array{<:TorusPolynomial, 1}, b::TorusPolynomial,
             current_variance::Float64)
         new(params, a, b, current_variance)
     end
@@ -74,11 +74,11 @@ function mk_tlwe_noiseless_trivial(mu::TorusPolynomial, tlwe_params::TLweParams,
 end
 
 
-function mk_shift_polynomial(sample::MKTLweSample, ai::Int32)
+function mk_mul_by_monomial(sample::MKTLweSample, ai::Int32)
     MKTLweSample(
         sample.params,
-        shift_polynomial.(sample.a, ai),
-        shift_polynomial(sample.b, ai),
+        mul_by_monomial.(sample.a, ai),
+        mul_by_monomial(sample.b, ai),
         sample.current_variance)
 end
 
@@ -156,9 +156,9 @@ struct MKTGswUESample
 
     function MKTGswUESample(
             tgsw_params::TGswParams, tlwe_params::TLweParams,
-            c0::Array{TorusPolynomial, 1}, c1::Array{TorusPolynomial, 1},
-            d0::Array{TorusPolynomial, 1}, d1::Array{TorusPolynomial, 1},
-            f0::Array{TorusPolynomial, 1}, f1::Array{TorusPolynomial, 1},
+            c0::Array{<: TorusPolynomial, 1}, c1::Array{<: TorusPolynomial, 1},
+            d0::Array{<: TorusPolynomial, 1}, d1::Array{<: TorusPolynomial, 1},
+            f0::Array{<: TorusPolynomial, 1}, f1::Array{<: TorusPolynomial, 1},
             current_variance::Float64)
 
         decomp_length = tgsw_params.decomp_length
@@ -248,10 +248,10 @@ struct MKTGswExpSample
 
     function MKTGswExpSample(
             tgsw_params::TGswParams, tlwe_params::TLweParams,
-            x::Array{TorusPolynomial, 2},
-            y::Array{TorusPolynomial, 2},
-            c0::Array{TorusPolynomial, 1},
-            c1::Array{TorusPolynomial, 1},
+            x::Array{<: TorusPolynomial, 2},
+            y::Array{<: TorusPolynomial, 2},
+            c0::Array{<: TorusPolynomial, 1},
+            c1::Array{<: TorusPolynomial, 1},
             current_variance::Float64)
 
         decomp_length = tgsw_params.decomp_length
@@ -462,7 +462,7 @@ function mk_mux_rotate(
         accum::MKTLweSample, sample::MKTransformedTGswExpSample,
         barai::Int32, party::Int, parties::Int)
     # ACC = BKi*[(X^barai-1)*ACC]+ACC
-    temp_result = mk_shift_polynomial(accum, barai) - accum
+    temp_result = mk_mul_by_monomial(accum, barai) - accum
     accum + mk_tgsw_extern_mul(temp_result, sample, party, parties)
 end
 
@@ -485,7 +485,7 @@ end
 function mk_blind_rotate_and_extract(
         v::TorusPolynomial, bk::MKBootstrapKey, barb::Int32, bara::Array{Int32, 2})
     parties = size(bara, 2)
-    testvectbis = shift_polynomial(v, -barb)
+    testvectbis = mul_by_monomial(v, -barb)
     acc = mk_tlwe_noiseless_trivial(testvectbis, bk.tlwe_params, parties)
     acc = mk_blind_rotate(acc, bk, bara)
     mk_tlwe_extract_sample(acc)

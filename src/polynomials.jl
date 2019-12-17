@@ -1,9 +1,9 @@
-IntPolynomial = Polynomial{Int32}
-TorusPolynomial = Polynomial{Torus32}
+IntPolynomial = Polynomial{Int32, N} where N
+TorusPolynomial = Polynomial{Torus32, N} where N
 
 
-int_polynomial(coeffs) = IntPolynomial(coeffs, true)
-torus_polynomial(coeffs) = TorusPolynomial(coeffs, true)
+int_polynomial(coeffs) = Polynomial(coeffs, negacyclic_modulus)
+torus_polynomial(coeffs) = Polynomial(coeffs, negacyclic_modulus)
 
 
 zero_torus_polynomial(len) = torus_polynomial(zeros(Torus32, len))
@@ -31,7 +31,7 @@ For the given p(x), calculates p(1/x) with the applcation of the corresponding m
 """
 function reverse_polynomial(p::Polynomial)
     new_coeffs = collect(reverse(p.coeffs))
-    shift_polynomial(Polynomial(new_coeffs, p.negacyclic), length(new_coeffs) + 1)
+    mul_by_monomial(Polynomial(new_coeffs, p.modulus), length(new_coeffs) + 1)
 end
 
 

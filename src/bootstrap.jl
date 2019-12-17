@@ -18,7 +18,7 @@ end
 
 function mux_rotate(accum::TLweSample, bki::TransformedTGswSample, barai::Int32)
     # accum += BK_i * [(X^bar{a}_i-1) * accum]
-    temp = shift_polynomial(accum, barai) - accum
+    temp = mul_by_monomial(accum, barai) - accum
     accum + tgsw_extern_mul(temp, bki)
 end
 
@@ -51,7 +51,7 @@ function blind_rotate_and_extract(
         v::TorusPolynomial, bk::BootstrapKey, barb::Int32, bara::Array{Int32, 1})
 
     # testvector = X^{2N-barb}*v == X^{-barb}*v
-    testvectbis = shift_polynomial(v, -barb)
+    testvectbis = mul_by_monomial(v, -barb)
 
     accum = tlwe_noiseless_trivial(testvectbis, bk.tlwe_params)
     accum = blind_rotate(accum, bk, bara)

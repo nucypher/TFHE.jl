@@ -3,8 +3,8 @@ module TFHE
 using Random: AbstractRNG
 using LinearAlgebra: mul!
 using FFTW: plan_fft, plan_ifft, Plan
-import DarkIntegers: shift_polynomial
-using DarkIntegers: Polynomial
+import DarkIntegers: mul_by_monomial
+using DarkIntegers: Polynomial, negacyclic_modulus
 
 include("numeric-functions.jl")
 

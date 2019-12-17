@@ -36,7 +36,8 @@ mutable struct TLweSample
     a :: Array{TorusPolynomial, 1} # array of length mask_size+1: mask + right term
     current_variance :: Float64 # avg variance of the sample
 
-    TLweSample(params::TLweParams, a::Array{TorusPolynomial, 1}, cv::Float64) = new(params, a, cv)
+    TLweSample(params::TLweParams, a::Array{T, 1}, cv::Float64) where T <: TorusPolynomial =
+        new(params, a, cv)
 end
 
 
@@ -68,7 +69,7 @@ function tlwe_encrypt_zero(rng::AbstractRNG, alpha::Float64, key::TLweKey)
     a_last = (
         int_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, polynomial_degree))
         + sum(transformed_mul.(key.key, a_part)))
-    TLweSample(params, vcat(a_part..., a_last), alpha^2)
+    TLweSample(params, vcat(a_part, [a_last]), alpha^2)
 end
 
 
@@ -76,7 +77,7 @@ end
 function tlwe_noiseless_trivial(mu::TorusPolynomial, params::TLweParams)
     a_part = [zero_torus_polynomial(params.polynomial_degree) for i in 1:params.mask_size]
     a_last = deepcopy(mu)
-    TLweSample(params, vcat(a_part..., a_last), 0.)
+    TLweSample(params, vcat(a_part, [a_last]), 0.)
 end
 
 
@@ -88,8 +89,8 @@ Base.:-(x::TLweSample, y::TLweSample) =
     TLweSample(x.params, x.a .- y.a, x.current_variance + y.current_variance)
 
 
-shift_polynomial(x::TLweSample, shift::Integer) =
-    TLweSample(x.params, shift_polynomial.(x.a, shift), x.current_variance)
+mul_by_monomial(x::TLweSample, shift::Integer) =
+    TLweSample(x.params, mul_by_monomial.(x.a, shift), x.current_variance)
 
 
 forward_transform(x::TLweSample) =
