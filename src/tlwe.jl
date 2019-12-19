@@ -55,7 +55,7 @@ end
 function tlwe_extract_sample(x::TLweSample)
     a = vcat([reverse_polynomial(p).coeffs for p in x.a[1:end-1]]...)
     b = x.a[end].coeffs[1]
-    LweSample(LweParams(length(a)), a, b, 0.) # TODO: calculate the current variance
+    LweSample(LweParams(length(a)), a, b, 0.) # TODO: (issue #7) calculate the current variance
 end
 
 
@@ -101,11 +101,11 @@ inverse_transform(x::TransformedTLweSample) =
     TLweSample(x.params, inverse_transform.(x.a), x.current_variance)
 
 
-# TODO: how to compute the variance correctly?
+# TODO: (issue #7) how to compute the variance correctly?
 Base.:+(x::TransformedTLweSample, y::TransformedTLweSample) =
     TransformedTLweSample(x.params, x.a .+ y.a, x.current_variance + y.current_variance)
 
 
-# TODO: how to compute the variance correctly?
+# TODO: (issue #7) how to compute the variance correctly?
 Base.:*(x::TransformedTLweSample, y::TransformedTorusPolynomial) =
     TransformedTLweSample(x.params, x.a .* y, x.current_variance)

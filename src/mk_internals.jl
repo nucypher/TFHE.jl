@@ -85,11 +85,11 @@ end
 
 function mk_tlwe_extract_sample(x::MKTLweSample)
     # Iterating over parties here, not mask elements! (mask_size = 1)
-    # TODO: correct for mask_size > 1
+    # TODO: (issue #2) correct for mask_size > 1
     a = hcat([reverse_polynomial(p).coeffs for p in x.a]...)
     b = x.b.coeffs[1]
     lwe_params = LweParams(x.params.polynomial_degree * x.params.mask_size)
-    MKLweSample(lwe_params, a, b, 0.) # TODO: calculate the current variance
+    MKLweSample(lwe_params, a, b, 0.) # TODO: (issue #7) calculate the current variance
 end
 
 
@@ -124,8 +124,9 @@ struct PublicKey
 
         # The right part of the public key is `b_i = e_i + a*s_i`,
         # where `a` is shared between the parties
-        # TODO: [1] was omitted in the original! It works while k=1, but will fail otherwise
-        # TODO: this is basically tgsw_encrypt_zero() for mask_size=1
+        # TODO: (issue #2) [1] was omitted in the original!
+        #       It works while k=1, but will fail otherwise
+        # TODO: (issue #2) this is basically tgsw_encrypt_zero() for mask_size=1
         b = [(
                 transformed_mul(tlwe_key.key[1], shared.a[i])
                 + torus_polynomial(rand_gaussian_torus32(rng, zero(Int32), alpha, p_degree)))
@@ -193,7 +194,7 @@ function mk_tgsw_encrypt(
 
     # C = (c0,c1) \in T^2dg, with c0 = s_party*c1 + e_c + m*g
     c1 = [torus_polynomial(rand_uniform_torus32(rng, p_degree)) for i in 1:decomp_length]
-    # TODO: it was just key, not key[1] in the original. Hardcoded mask_size=1? Check!
+    # TODO: (issue #2) it was just key, not key[1] in the original. Hardcoded mask_size=1? Check!
     c0 = [
             (torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
             + transformed_mul(tlwe_key.key[1], c1[i])
@@ -213,7 +214,7 @@ function mk_tgsw_encrypt(
 
     # F = (f0,f1) \in T^2dg, with f0 = s_party*f1 + e_f + r*g
     f1 = [torus_polynomial(rand_uniform_torus32(rng, p_degree)) for i in 1:decomp_length]
-    # TODO: it was just key, not key[1] in the original. Hardcoded mask_size=1? Check!
+    # TODO: (issue #2) it was just key, not key[1] in the original. Hardcoded mask_size=1? Check!
     f0 = [
             (torus_polynomial(rand_gaussian_torus32(rng, Int32(0), alpha, p_degree))
             + transformed_mul(tlwe_key.key[1], f1[i])
@@ -337,7 +338,7 @@ function mk_tgsw_expand(sample::MKTGswUESample, party::Int, public_keys::Array{P
         for j in 1:decomp_length, i in 1:parties
         ]
 
-    # TODO: calculate the current variance correctly
+    # TODO: (issue #7) calculate the current variance correctly
     MKTGswExpSample(tgsw_params, tlwe_params, x, y, sample.c0, sample.c1, 0.0)
 end
 
@@ -383,7 +384,7 @@ function mk_tgsw_extern_mul(
         + sum([inverse_transform(tr_dec_b[l] * exp_sample.c0[l])
             for l in 1:decomp_length]))
 
-    # TODO: calculate current_variance
+    # TODO: (issue #7) calculate current_variance
     MKTLweSample(tlwe_params, a, b, 0.)
 end
 

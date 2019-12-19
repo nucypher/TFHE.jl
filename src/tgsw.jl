@@ -64,7 +64,8 @@ function tgsw_add_gadget_times_message(sample::TGswSample, message::Int32)
             sample.tlwe_params,
             [j == k ? sample.samples[i,j].a[k] + message * gadget[i] : sample.samples[i,j].a[k]
                 for k in 1:mask_size+1],
-            sample.samples[i,j].current_variance) # TODO: calculate current_variance correctly
+            # TODO: (issue #7) calculate current_variance correctly
+            sample.samples[i,j].current_variance)
         for i in 1:decomp_length, j in 1:mask_size+1]
 
     TGswSample(sample.tgsw_params, samples)

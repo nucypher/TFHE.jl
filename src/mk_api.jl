@@ -74,7 +74,7 @@ end
 
 function mk_encrypt(rng, secret_keys::Array{SecretKey, 1}, message::Bool)
 
-    # TODO: encrypt separately for each party and share <a_i, s_i>?
+    # TODO: (issue #6) encrypt separately for each party and share <a_i, s_i>?
 
     mu = encode_message(message ? 1 : -1, 8)
 
@@ -92,6 +92,6 @@ end
 
 
 function mk_decrypt(secret_keys::Array{SecretKey, 1}, sample::MKLweSample)
-    # TODO: decrypt separately at each party and join phases?
+    # TODO: (issue #6) decrypt separately at each party and join phases?
     mk_lwe_phase(sample, [sk.key for sk in secret_keys]) > 0
 end

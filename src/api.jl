@@ -21,7 +21,7 @@ end
 # Parameters from I. Chillotti, N. Gama, M. Georgieva, and M. Izabachene,
 # "Faster Fully Homomorphic Encryption: Bootstrapping in Less Than 0.1 Seconds"
 tfhe_parameters(; tlwe_mask_size::Int=1) = SchemeParameters(
-    # TODO: LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
+    # TODO: (issue #5) LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
     # (maximum standard deviation for a 1/4 msg space)
     500, 1/2^15 * sqrt(2 / pi), # LWE parameters
     1024, tlwe_mask_size, # TLWE parameters
