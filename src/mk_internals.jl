@@ -1,6 +1,8 @@
 # LWE
 
-
+"""
+A structure representing an encrypted bit in multi-key TFHE.
+"""
 struct MKLweSample
 
     params :: LweParams

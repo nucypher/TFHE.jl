@@ -15,6 +15,9 @@ struct LweKey
 end
 
 
+"""
+A structure representing an encrypted bit.
+"""
 mutable struct LweSample
     params :: LweParams
     a :: Array{Torus32, 1} # the n coefs of the mask

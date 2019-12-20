@@ -1,3 +1,6 @@
+"""
+TFHE scheme parameters (single- or multi- party).
+"""
 struct SchemeParameters
 
     lwe_size :: Int
@@ -18,9 +21,15 @@ struct SchemeParameters
 end
 
 
-# Parameters from I. Chillotti, N. Gama, M. Georgieva, and M. Izabachene,
-# "Faster Fully Homomorphic Encryption: Bootstrapping in Less Than 0.1 Seconds"
+"""
+    tfhe_parameters(; tlwe_mask_size::Int=1)
+
+Creates a single-party [`SchemeParameters`](@ref) object to pass to [`SecretKey`](@ref).
+"""
 tfhe_parameters(; tlwe_mask_size::Int=1) = SchemeParameters(
+    # Parameters from I. Chillotti, N. Gama, M. Georgieva, and M. Izabachene,
+    # "Faster Fully Homomorphic Encryption: Bootstrapping in Less Than 0.1 Seconds"
+
     # TODO: (issue #5) LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
     # (maximum standard deviation for a 1/4 msg space)
     500, 1/2^15 * sqrt(2 / pi), # LWE parameters
@@ -44,6 +53,13 @@ keyswitch_parameters(params::SchemeParameters) =
     KeyswitchParameters(params.ks_decomp_length, params.ks_log2_base)
 
 
+"""
+    SecretKey(rng::AbstractRNG, params::SchemeParameters)
+
+A TFHE secret key, used for encryption/decryption.
+Currently the only official way to get an object to pass to `params`
+is from [`tfhe_parameters`](@ref).
+"""
 struct SecretKey
     params :: SchemeParameters
     key :: LweKey
@@ -58,6 +74,11 @@ end
 Base.Broadcast.broadcastable(sk::SecretKey) = (sk,)
 
 
+"""
+    CloudKey(rng::AbstractRNG, secret_key::SecretKey)
+
+A TFHE cloud (public) key, used for secure computations by a third party.
+"""
 struct CloudKey
     params :: SchemeParameters
     bootstrap_key :: BootstrapKey
@@ -77,9 +98,15 @@ struct CloudKey
 end
 
 
-Base.Broadcast.broadcastable(sk::CloudKey) = (sk,)
+Base.Broadcast.broadcastable(ck::CloudKey) = (ck,)
 
 
+"""
+    make_key_pair(rng::AbstractRNG, params::Union{Nothing, SchemeParameters}=nothing)
+
+Creates a pair of [`SecretKey`](@ref) and a corresponding [`CloudKey`](@ref).
+If `params` is `nothing`, the default return value of [`tfhe_parameters`](@ref) is used.
+"""
 function make_key_pair(rng::AbstractRNG, params::Union{Nothing, SchemeParameters}=nothing)
     if params === nothing
         params = tfhe_parameters()
@@ -90,14 +117,24 @@ function make_key_pair(rng::AbstractRNG, params::Union{Nothing, SchemeParameters
 end
 
 
-# encrypts a boolean
+"""
+    encrypt(rng::AbstractRNG, key::SecretKey, message::Bool)
+
+Encrypts a plaintext bit.
+Returns a [`LweSample`](@ref) object.
+"""
 function encrypt(rng::AbstractRNG, key::SecretKey, message::Bool)
     alpha = key.params.lwe_noise_stddev
     lwe_encrypt(rng, encode_message(message ? 1 : -1, 8), alpha, key.key)
 end
 
 
-# decrypts a boolean
+"""
+    decrypt(key::SecretKey, sample::LweSample)
+
+Decrypts an encrypted bit.
+Returns a boolean.
+"""
 function decrypt(key::SecretKey, sample::LweSample)
     lwe_phase(sample, key.key) > 0
 end
