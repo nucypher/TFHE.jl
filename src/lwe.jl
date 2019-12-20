@@ -26,6 +26,9 @@ mutable struct LweSample
 end
 
 
+Base.Broadcast.broadcastable(lwe::LweSample) = (lwe,)
+
+
 """
 This function encrypts message by using key, with stdev alpha
 """

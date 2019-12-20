@@ -55,6 +55,9 @@ struct SecretKey
 end
 
 
+Base.Broadcast.broadcastable(sk::SecretKey) = (sk,)
+
+
 struct CloudKey
     params :: SchemeParameters
     bootstrap_key :: BootstrapKey
@@ -72,6 +75,9 @@ struct CloudKey
         new(secret_key.params, bs_key, ks_key)
     end
 end
+
+
+Base.Broadcast.broadcastable(sk::CloudKey) = (sk,)
 
 
 function make_key_pair(rng::AbstractRNG, params::Union{Nothing, SchemeParameters}=nothing)
