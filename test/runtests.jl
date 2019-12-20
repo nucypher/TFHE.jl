@@ -83,4 +83,4 @@ end
 end
 
 
-runtests()
+exit(runtests())
