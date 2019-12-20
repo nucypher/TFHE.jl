@@ -1,0 +1,9 @@
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: julia:1.3
+    steps:
+      - run:
+          name: do nothing
+          command: echo 0
