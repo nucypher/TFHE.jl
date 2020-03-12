@@ -12,6 +12,8 @@ tfhe_parameters
 SecretKey
 CloudKey
 make_key_pair
+tfhe_parameters_80
+tfhe_parameters_128
 ```
 
 ## Encryption/decryption

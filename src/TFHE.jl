@@ -27,7 +27,8 @@ export SecretKey
 export CloudKey
 export encrypt
 export decrypt
-export tfhe_parameters
+export tfhe_parameters_80
+export tfhe_parameters_128
 
 include("gates.jl")
 export gate_nand

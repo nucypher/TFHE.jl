@@ -22,20 +22,55 @@ end
 
 
 """
-    tfhe_parameters(; tlwe_mask_size::Int=1)
+    tfhe_parameters_80(; tlwe_mask_size::Int=1)
 
-Creates a single-party [`SchemeParameters`](@ref) object to pass to [`SecretKey`](@ref).
+Creates a single-party [`SchemeParameters`](@ref) object to pass to [`SecretKey`](@ref),
+with parameters set to provide ~80 bits of security.
 """
-tfhe_parameters(; tlwe_mask_size::Int=1) = SchemeParameters(
+tfhe_parameters_80(; tlwe_mask_size::Int=1) = SchemeParameters(
     # Parameters from I. Chillotti, N. Gama, M. Georgieva, and M. Izabachene,
     # "Faster Fully Homomorphic Encryption: Bootstrapping in Less Than 0.1 Seconds"
+    # In 2020, estimated to provide ~80 bits of security.
 
     # TODO: (issue #5) LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
     # (maximum standard deviation for a 1/4 msg space)
-    500, 1/2^15 * sqrt(2 / pi), # LWE parameters
-    1024, tlwe_mask_size, # TLWE parameters
-    2, 10, 9e-9 * sqrt(2 / pi), # bootstrap parameters
-    8, 2, 1/2^15 * sqrt(2 / pi), # keyswitch parameters
+
+    # LWE parameters
+    500,
+    1/2^15 * sqrt(2 / pi),
+    # TLWE parameters
+    1024, tlwe_mask_size,
+    # bootstrap parameters
+    2, 10, 9e-9 * sqrt(2 / pi),
+    # keyswitch parameters
+    8, 2, 1/2^15 * sqrt(2 / pi),
+    1 # Only used for single-party encryption
+    )
+
+
+
+"""
+    tfhe_parameters_128(; tlwe_mask_size::Int=1)
+
+Creates a single-party [`SchemeParameters`](@ref) object to pass to [`SecretKey`](@ref),
+with parameters set to provide ~128 bits of security.
+"""
+tfhe_parameters_128(; tlwe_mask_size::Int=1) = SchemeParameters(
+    # Parameters from CGGI2019.
+    # In 2020, estimated to provide ~129 bits of security.
+
+    # TODO: (issue #5) LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
+    # (maximum standard deviation for a 1/4 msg space)
+
+    # LWE parameters
+    630,
+    1/2^15,
+    # TLWE parameters
+    1024, tlwe_mask_size,
+    # bootstrap parameters
+    3, 7, 1/2^25,
+    # keyswitch parameters
+    8, 2, 1/2^15,
     1 # Only used for single-party encryption
     )
 
@@ -109,7 +144,7 @@ If `params` is `nothing`, the default return value of [`tfhe_parameters`](@ref) 
 """
 function make_key_pair(rng::AbstractRNG, params::Union{Nothing, SchemeParameters}=nothing)
     if params === nothing
-        params = tfhe_parameters()
+        params = tfhe_parameters_80()
     end
     secret_key = SecretKey(rng, params)
     cloud_key = CloudKey(rng, secret_key)

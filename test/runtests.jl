@@ -40,6 +40,23 @@ gate_test_ids = [gate_test[1] for gate_test in gate_tests]
 end
 
 
+@testcase "single party, custom parameters" begin
+    rng = MersenneTwister(123)
+    params = tfhe_parameters_128()
+    secret_key, cloud_key = make_key_pair(rng, params)
+
+    _, gate, nargs, reference = gate_tests[1]
+
+    for bits in product([(false, true) for i in 1:nargs]...)
+        ebits = [encrypt(rng, secret_key, b) for b in bits]
+        eres = gate(cloud_key, ebits...)
+        res = decrypt(secret_key, eres)
+        ref_res = reference(bits...)
+        @test res == ref_res
+    end
+end
+
+
 @testcase "multikey NAND" begin
 
     parties = 2
