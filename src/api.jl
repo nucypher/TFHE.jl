@@ -32,9 +32,6 @@ tfhe_parameters_80(; tlwe_mask_size::Int=1) = SchemeParameters(
     # "Faster Fully Homomorphic Encryption: Bootstrapping in Less Than 0.1 Seconds"
     # In 2020, estimated to provide ~80 bits of security.
 
-    # TODO: (issue #5) LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
-    # (maximum standard deviation for a 1/4 msg space)
-
     # LWE parameters
     500,
     1/2^15 * sqrt(2 / pi),
@@ -58,9 +55,6 @@ with parameters set to provide ~128 bits of security.
 tfhe_parameters_128(; tlwe_mask_size::Int=1) = SchemeParameters(
     # Parameters from CGGI2019.
     # In 2020, estimated to provide ~129 bits of security.
-
-    # TODO: (issue #5) LWE stddev could perhaps be as large as `1/2^4 / 4 * sqrt(2 / pi)`
-    # (maximum standard deviation for a 1/4 msg space)
 
     # LWE parameters
     630,
